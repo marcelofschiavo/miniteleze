@@ -687,14 +687,14 @@
         // ===== Carregamento simples do repertorio.json (mesmo domínio, sem CORS) =====
         async function carregarRepertorio() {
             try {
-                const resp = await fetch('repertorio.json', { cache: 'no-store' });
+                const resp = await fetch('./repertorio.json', { cache: 'no-store' });
                 if (resp.ok) {
-                    const dados = await resp.json();
-                    if (Array.isArray(dados)) {
-                        banco = dados;
-                        localStorage.setItem('bancoCache', JSON.stringify(banco));
-                        statusMsg('✅ ' + banco.length + ' cifra(s) carregada(s)', '#28a745');
+                    const texto = await resp.text();
+                    if (texto.trim().startsWith('<')) {
+                        throw new Error('repertorio.json retornou HTML em vez de JSON');
                     }
+                    const dados = JSON.parse(texto);
+                    if (Array.isArray(dados)) banco = dados;
                 } else {
                     throw new Error('HTTP ' + resp.status);
                 }
