@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter de Cifras</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --bg-header: #1e1e1e;
+            --bg-panel: #1a1a1a;
+            --bg-songbar: #181818;
+            --bg-input: #333;
+            --bg-textarea: #2a2a2a;
+            --bg-diagram: #222;
+            --text: #e0e0e0;
+            --text-muted: #aaa;
+            --text-faint: #888;
+            --text-faint2: #666;
+            --border: #333;
+            --border-input: #555;
+            --chord-color: #ffb300;
+        }
+
+        body.light-theme {
+            --bg: #f5f5f2;
+            --bg-header: #ffffff;
+            --bg-panel: #ffffff;
+            --bg-songbar: #eeeeea;
+            --bg-input: #ffffff;
+            --bg-textarea: #ffffff;
+            --bg-diagram: #f0f0ec;
+            --text: #1a1a1a;
+            --text-muted: #555;
+            --text-faint: #777;
+            --text-faint2: #888;
+            --border: #ddd;
+            --border-input: #ccc;
+            --chord-color: #b36b00;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: sans-serif;
+            padding-bottom: 130px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        #header {
+            position: relative;
+            background: var(--bg-header);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        #searchBox {
+            width: 40%;
+            max-width: 260px;
+        }
+
+        #searchWrap {
+            position: relative;
+            display: inline-block;
+        }
+        #searchResults {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            max-height: 260px;
+            overflow-y: auto;
+            background: var(--bg-header);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+            z-index: 150;
+        }
+        #searchResults.show { display: block; }
+        #searchResults .search-result-item {
+            padding: 10px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #searchResults .search-result-item:last-child { border-bottom: none; }
+        #searchResults .search-result-item:hover,
+        #searchResults .search-result-item.active {
+            background: var(--bg-input);
+        }
+        #searchResults .search-result-empty {
+            padding: 10px 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        select, input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border-input);
+            border-radius: 5px;
+        }
+
+        select { width: 40%; max-width: 260px; }
+
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #0056b3; }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn-info { background-color: #17a2b8; }
+        .btn-info:hover { background-color: #117a8b; }
+        .btn-warning { background-color: #ffc107; color: #222; }
+        .btn-warning:hover { background-color: #e0a800; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+        #songBar {
+            display: none;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--bg-songbar);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        #songBar .tag {
+            font-size: 12px;
+            color: var(--text-faint);
+        }
+
+        #mainArea {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #content {
+            padding: 40px 20px;
+            max-width: 900px;
+            flex: 1 1 auto;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            font-size: 24px;
+            line-height: 1.4;
+            min-height: 100vh;
+        }
+
+        .chord-line {
+            color: var(--chord-color);
+            font-weight: bold;
+        }
+
+        .chord-tok {
+            cursor: pointer;
+            border-bottom: 1px dotted transparent;
+            padding: 0 1px;
+        }
+        .chord-tok:hover, .chord-tok:active {
+            border-bottom-color: currentColor;
+            background: rgba(255,179,0,0.15);
+            border-radius: 3px;
+        }
+
+        #chordPanel {
+            display: none;
+            flex: 0 0 180px;
+            position: sticky;
+            top: 15px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 90vh;
+            overflow-y: auto;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        #chordPanel.show { display: flex; }
+
+        #tomSelectorBox {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        #tomSelector {
+            width: auto;
+            max-width: none;
+            padding: 4px 6px;
+            font-size: 13px;
+            margin-left: 4px;
+        }
+        .btn-zoom { padding: 3px 8px; font-size: 12px; font-weight: bold; }
+
+        .ios-toggle-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        .ios-toggle {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .ios-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .ios-toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555;
+            border-radius: 24px;
+            transition: background-color 0.2s;
+        }
+
+        .ios-toggle .slider::before {
+            content: "";
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        .ios-toggle input:checked + .slider {
+            background-color: #28a745;
+        }
+
+        .ios-toggle input:checked + .slider::before {
+            transform: translateX(16px);
+        }
+        #acordesGroup {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        #acordesGroup #btnAcordes {
+            border-radius: 6px 0 0 6px;
+        }
+        #zoomGroup {
+            display: none;
+            align-items: center;
+            border: 1px solid var(--text-faint2, #555);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            overflow: hidden;
+        }
+        #zoomGroup.show { display: inline-flex; }
+        #zoomGroup .btn-zoom {
+            border-radius: 0;
+            border: none;
+            border-left: 1px solid rgba(255,255,255,0.15);
+        }
+        #zoomGroup .btn-zoom:first-child { border-left: none; }
+
+        .chord-diagram-box {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-textarea); /* Fundo preenchido para separar os cards */
+            border: 1px solid var(--border-input); /* Borda visível */
+            border-radius: 8px; /* Arredondamento suave */
+            padding: 10px 4px; /* Respiro interno */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15); /* Sombra elegante */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chord-diagram-box svg {
+            background: transparent; /* Removemos o fundo do SVG pois o card todo já tem cor */
+            border-radius: 4px;
+            max-width: 100%;
+        }
+
+        #chordPopup {
+            display: none;
+            position: fixed;
+            z-index: 300;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 12px 10px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+        }
+        #chordPopup.show { display: block; }
+        #btnFecharPopup {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            padding: 2px 8px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .funcao-label {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: bold;
+            color: #222;
+            background: var(--chord-color);
+            border-radius: 8px;
+            padding: 1px 6px;
+            margin-left: 4px;
+        }
+
+        @media (max-width: 800px) {
+            #chordPanel {
+                position: static;
+                flex: 1 1 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                max-height: none;
+            }
+            .chord-diagram-box { width: 90px; }
+        }
+
+        #tapFlash {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            text-align: center;
+            padding: 6px;
+            font-size: 13px;
+            background: #dc3545;
+            color: white;
+            transform: translateY(-100%);
+            transition: transform 0.25s;
+            z-index: 200;
+        }
+        #tapFlash.show { transform: translateY(0); }
+
+        #controls {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--bg-header);
+            padding: 6px 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid var(--border);
+            z-index: 10000; /* Deve ser maior que o z-index do syncOverlay (9999) */
+            flex-wrap: nowrap;
+        }
+
+        #toggleBtn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .stepper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.stepper span {
+    min-width: 24px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+        input[type=range] { width: 80px; height: 16px; }
+
+        #wakeStatus {
+            font-size: 11px;
+            color: var(--text-faint2);
+            text-align: center;
+            padding: 4px;
+        }
+
+        .song-section {
+            display: inline-block;
+            background: var(--bg-input);
+            color: var(--chord-color);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 15px;
+            border: 1px solid var(--border);
+        }
+
+        /* Pontinho Dinâmico para leitura ao vivo */
+        #focusMarker {
+            position: fixed;
+            top: 35%; /* Ponto focal de leitura natural */
+            left: 8px;
+            width: 10px;
+            height: 10px;
+            background-color: var(--chord-color);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--chord-color);
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s, background-color 0.5s, box-shadow 0.5s;
+        }
+
+        body.playing #focusMarker {
+            opacity: 1;
+            animation: pulseDot 1.5s infinite alternate;
+        }
+
+        @keyframes pulseDot {
+            0% { transform: scale(0.8); opacity: 0.6; }
+            100% { transform: scale(1.2); opacity: 1; }
+        }
+
+        /* Overlay de Sincronização (Loading) */
+        #syncOverlay {
+            display: none; /* Escondido por padrão */
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px); /* Efeito de vidro embaçado lindo */
+            z-index: 9999; /* Fica acima de TUDO, travando a interface */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #syncOverlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-top: 5px solid var(--chord-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="focusMarker"></div>
+    <div id="syncOverlay">
+        <div class="spinner"></div>
+        <div id="syncOverlayText">Aguarde, carregando as cifras...</div>
+    </div>
+
+    <div id="tapFlash">Pausado (toque na tela)</div>
+
+    <div id="header">
+        <div id="searchWrap">
+            <input type="text" id="searchBox" placeholder="🔍 Buscar cifra...">
+            <div id="searchResults"></div>
+        </div>
+        <select id="cifraSelector">
+            <option value="" disabled selected>Selecione uma cifra...</option>
+        </select>
+        <button id="btnTema" class="btn-sm">🌙 Tema</button>
+    </div>
+    <div id="syncStatus" style="text-align:center;font-size:11px;color:#666;padding:4px;"></div>
+
+    <div id="songBar">
+        <div id="tomGroup" style="display:inline-flex;align-items:center;border-radius:6px;overflow:hidden;">
+    <button id="btnTransposeDown" class="btn-sm btn-zoom" title="Abaixar tom">▼ Tom</button>
+    <span id="transposeLabel" style="font-size:12px;color:var(--text-muted);padding:0 6px;">0</span>
+    <button id="btnTransposeUp" class="btn-sm btn-zoom" title="Subir tom">▲ Tom</button>
+</div>
+    <label class="ios-toggle-wrap">
+            📝 Só Letra
+            <span class="ios-toggle">
+                <input type="checkbox" id="btnSoLetra">
+                <span class="slider"></span>
+            </span>
+        </label>
+        <div id="acordesGroup">
+    <label class="ios-toggle-wrap">
+        🎸 Acordes
+        <span class="ios-toggle">
+            <input type="checkbox" id="btnAcordes">
+            <span class="slider"></span>
+        </span>
+    </label>
+    <span id="zoomGroup">
+        <button id="btnZoomOut" class="btn-sm btn-zoom" title="Diminuir diagrama">−</button>
+        <button id="btnZoomIn" class="btn-sm btn-zoom" title="Aumentar diagrama">+</button>
+    </span>
+</div>
+        <label class="ios-toggle-wrap">
+    🗜️ Compactar
+    <span class="ios-toggle">
+        <input type="checkbox" id="btnCompacto">
+        <span class="slider"></span>
+    </span>
+</label>
+
+<label class="ios-toggle-wrap">
+    🎵 Tabs
+    <span class="ios-toggle">
+        <input type="checkbox" id="btnTablaturas">
+        <span class="slider"></span>
+    </span>
+</label>
+    </div>
+
+    <div id="mainArea">
+        <div id="content">Selecione uma música no menu acima ou adicione/importe novas cifras.</div>
+        <div id="chordPanel"></div>
+    </div>
+
+    <div id="chordPopup"></div>
+
+    <div id="controls">
+    <button id="toggleBtn">Iniciar</button>
+    <div class="control-group">
+        <label>Velocidade</label>
+        <div class="stepper">
+            <button type="button" id="btnSpeedDown" class="btn-sm btn-zoom">−</button>
+            <span id="speedValue">15</span>
+            <button type="button" id="btnSpeedUp" class="btn-sm btn-zoom">+</button>
+        </div>
+    </div>
+    <div class="control-group">
+        <label>Tam. Letra</label>
+        <div class="stepper">
+            <button type="button" id="btnFontDown" class="btn-sm btn-zoom">−</button>
+            <span id="fontSizeValue">24</span>
+            <button type="button" id="btnFontUp" class="btn-sm btn-zoom">+</button>
+        </div>
+    </div>
+    <input type="range" id="speed" min="1" max="100" value="15" style="display:none;">
+    <input type="range" id="fontSize" min="8" max="80" value="24" style="display:none;">
+</div>
+    <div id="wakeStatus"></div>
+
+    <script>
+        // ===== Estrutura de dados =====
+        // Acervo único (banco), sincronizado com a nuvem (JSONBin.io) + cache local pra funcionar offline.
+        // cifra = { titulo, texto }
+        let banco = JSON.parse(localStorage.getItem('bancoCache')) || [];
+        let transposeAtual = 0;
+        
+        // ===== Configuração Pública (Pode ficar no código) =====
+        const DEFAULT_CONFIG = { 
+            manifestId: '6a585236f5f4af5e2995aed1', // O ID público
+            apiKey: '$2a$10$9kBr.w2XKfL8Y0FhF0Qbd.if8fkIyl1fh9ycj6wjTyUCi1t6rN8HC'        // A Chave de LEITURA (Read-Only)
+        };
+
+        // Este sistema é somente leitura/visualização — sempre usa a chave pública de leitura.
+        let cloudConfig = DEFAULT_CONFIG;
+
+        const content = document.getElementById('content');
+        const cifraSelector = document.getElementById('cifraSelector');
+        const searchBox = document.getElementById('searchBox');
+        const searchResults = document.getElementById('searchResults');
+        const songBar = document.getElementById('songBar');
+        const btnTransposeUp = document.getElementById('btnTransposeUp');
+        const btnTransposeDown = document.getElementById('btnTransposeDown');
+        const transposeLabel = document.getElementById('transposeLabel');
+        const syncStatus = document.getElementById('syncStatus');
+
+        const btnAcordes = document.getElementById('btnAcordes');
+        const chordPanel = document.getElementById('chordPanel');
+        const chordPopup = document.getElementById('chordPopup');
+        const btnZoomIn = document.getElementById('btnZoomIn');
+        const btnZoomOut = document.getElementById('btnZoomOut');
+        const zoomGroup = document.getElementById('zoomGroup');
+        const btnCompacto = document.getElementById('btnCompacto');
+        const btnTablaturas = document.getElementById('btnTablaturas');
+        const btnTema = document.getElementById('btnTema');
+
+        const toggleBtn = document.getElementById('toggleBtn');
+        const speedInput = document.getElementById('speed');
+        const fontSizeInput = document.getElementById('fontSize');
+        const tapFlash = document.getElementById('tapFlash');
+        const wakeStatus = document.getElementById('wakeStatus');
+
+        const speedValue = document.getElementById('speedValue');
+const fontSizeValue = document.getElementById('fontSizeValue');
+const btnSpeedUp = document.getElementById('btnSpeedUp');
+const btnSpeedDown = document.getElementById('btnSpeedDown');
+const btnFontUp = document.getElementById('btnFontUp');
+const btnFontDown = document.getElementById('btnFontDown');
+
+function atualizarSpeedDisplay() {
+    speedValue.textContent = speedInput.value;
+}
+function atualizarFontDisplay() {
+    fontSizeValue.textContent = fontSizeInput.value;
+}
+
+btnSpeedUp.addEventListener('click', () => {
+    speedInput.value = Math.min(100, parseInt(speedInput.value) + 5);
+    atualizarSpeedDisplay();
+    speedInput.dispatchEvent(new Event('input'));
+});
+btnSpeedDown.addEventListener('click', () => {
+    speedInput.value = Math.max(1, parseInt(speedInput.value) - 5);
+    atualizarSpeedDisplay();
+    speedInput.dispatchEvent(new Event('input'));
+});
+
+btnFontUp.addEventListener('click', () => {
+    fontSizeInput.value = Math.min(80, parseInt(fontSizeInput.value) + 2);
+    atualizarFontDisplay();
+    fontSizeInput.dispatchEvent(new Event('input'));
+});
+btnFontDown.addEventListener('click', () => {
+    fontSizeInput.value = Math.max(8, parseInt(fontSizeInput.value) - 2);
+    atualizarFontDisplay();
+    fontSizeInput.dispatchEvent(new Event('input'));
+});
+
+atualizarSpeedDisplay();
+atualizarFontDisplay();
+
+        let isPlaying = false;
+        let animationId;
+        let wakeLock = null;
+
+        const btnSoLetra = document.getElementById('btnSoLetra');
+        // Força o padrão sempre desativado ao abrir a página, ignorando histórico
+        let mostrarSoLetra = false;
+        btnSoLetra.checked = false;
+
+        btnSoLetra.addEventListener('change', () => {
+            mostrarSoLetra = btnSoLetra.checked;
+            
+            // UX inteligente: Se ativou "Só Letra", desliga o painel lateral de acordes
+            if (mostrarSoLetra && btnAcordes.checked) {
+                btnAcordes.click(); 
+            }
+            
+            rerenderizarConteudoAtual();
+        });
+
+        // ===== Tema claro/escuro =====
+        function aplicarTema(tema) {
+            document.body.classList.toggle('light-theme', tema === 'light');
+            btnTema.textContent = tema === 'light' ? '☀️ Tema' : '🌙 Tema';
+        }
+        let temaAtual = localStorage.getItem('tema') || 'dark';
+        aplicarTema(temaAtual);
+        btnTema.addEventListener('click', () => {
+            temaAtual = temaAtual === 'light' ? 'dark' : 'light';
+            localStorage.setItem('tema', temaAtual);
+            aplicarTema(temaAtual);
+        });
+
+        // ===== Sincronização com a nuvem (JSONBin.io) =====
+        // Estratégia: bin "manifesto" guarda só { chunkIds: [...] }.
+        // O acervo em si é fatiado em N bins de dados (cada um < LIMITE_BYTES),
+        // criados/apagados automaticamente conforme o acervo cresce/encolhe.
+        // cloudConfig = { manifestId, apiKey }
+        function statusMsg(texto, cor) {
+            syncStatus.textContent = texto;
+            syncStatus.style.color = cor || '#666';
+        }
+
+        // Monta a mensagem exibida quando não foi possível buscar a nuvem agora
+        function mensagemAcervoLocal() {
+            const isoSalvo = localStorage.getItem('ultimoSyncOk');
+            let quando = 'nunca sincronizado';
+            if (isoSalvo) {
+                const d = new Date(isoSalvo);
+                const dataFmt = d.toLocaleDateString('pt-BR');
+                const horaFmt = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                quando = dataFmt + ' às ' + horaFmt;
+            }
+            return '📦 Acervo de ' + quando + ' (modo leitura)';
+        }
+
+        // Busca um "bin" no JSONBin (somente leitura). Usa callbacks (onOk/onErr) em vez de
+        // async/await para funcionar também em navegadores mais antigos (ex: tablets antigos),
+        // que às vezes não suportam async/await e travam a página inteira com um erro de sintaxe.
+        function jsonbinGet(id, apiKey, onOk, onErr) {
+            fetch('https://api.jsonbin.io/v3/b/' + id + '/latest', {
+                headers: {
+                    'X-Master-Key': apiKey,
+                    'X-Access-Key': apiKey
+                }
+            }).then(function (resp) {
+                if (!resp.ok) throw new Error('Falha ao buscar bin ' + id + ': ' + resp.status);
+                return resp.json();
+            }).then(function (data) {
+                onOk(data.record);
+            }).catch(function (e) {
+                onErr(e);
+            });
+        }
+
+        // ===== Proteção contra Miss-click (Limpa a tela ao rolar) =====
+        window.addEventListener('scroll', () => {
+            // Se o autoscroll estiver rodando, não fecha o popup!
+            if (isPlaying) return;
+
+            if (chordPopup.classList.contains('show')) {
+                chordPopup.classList.remove('show');
+            }
+        });
+
+        // ===== Controle visual do Overlay de Loading =====
+        const syncOverlay = document.getElementById('syncOverlay');
+        const syncOverlayText = document.getElementById('syncOverlayText');
+
+        function mostrarOverlaySync(texto) {
+            syncOverlayText.textContent = texto;
+            syncOverlay.classList.add('show');
+        }
+
+        function esconderOverlaySync() {
+            syncOverlay.classList.remove('show');
+        }
+
+        // ===== Carregamento da nuvem (somente leitura) =====
+        // Reescrito sem async/await (usa .then/callbacks) para funcionar em navegadores
+        // antigos que não suportam essa sintaxe — nesses casos, um "async" no meio do script
+        // impede a página inteira de carregar (nada funciona, nem o menu nem as cifras).
+        function carregarNuvem() {
+            if (!cloudConfig || !cloudConfig.manifestId || !cloudConfig.apiKey) {
+                statusMsg('☁️ Nuvem não configurada — usando apenas cópia local.', '#e0a800');
+                if (banco.length === 0) {
+                    fetch('repertorio.json', { cache: 'no-store' }).then(function (resp) {
+                        return resp.ok ? resp.json() : null;
+                    }).then(function (dados) {
+                        if (Array.isArray(dados)) {
+                            banco = dados;
+                            localStorage.setItem('bancoCache', JSON.stringify(banco));
+                        }
+                        renderizarLista();
+                    }).catch(function () {
+                        renderizarLista();
+                    });
+                } else {
+                    renderizarLista();
+                }
+                return;
+            }
+
+            // TRAVA A TELA AQUI
+            mostrarOverlaySync('Aguarde, baixando seu acervo da nuvem...');
+            statusMsg('⏳ Sincronizando...', '#aaa');
+
+            jsonbinGet(cloudConfig.manifestId, cloudConfig.apiKey, function (manifesto) {
+                const chunkIds = (manifesto && Array.isArray(manifesto.chunkIds)) ? manifesto.chunkIds : [];
+                let dados = [];
+                let i = 0;
+
+                function proximoPedaco() {
+                    if (i >= chunkIds.length) {
+                        banco = dados;
+                        localStorage.setItem('bancoCache', JSON.stringify(banco));
+                        localStorage.setItem('ultimoSyncOk', new Date().toISOString());
+                        statusMsg('☁️ Sincronizado (' + chunkIds.length + ' pedaço(s))', '#28a745');
+                        esconderOverlaySync();
+                        renderizarLista();
+                        return;
+                    }
+                    jsonbinGet(chunkIds[i], cloudConfig.apiKey, function (pedaco) {
+                        if (Array.isArray(pedaco)) dados = dados.concat(pedaco);
+                        i++;
+                        proximoPedaco();
+                    }, function (e) {
+                        console.error('carregarNuvem erro (pedaço):', e);
+                        i++;
+                        proximoPedaco();
+                    });
+                }
+                proximoPedaco();
+            }, function (e) {
+                console.error('carregarNuvem erro:', e);
+                statusMsg(mensagemAcervoLocal(), '#e0a800');
+                esconderOverlaySync();
+                renderizarLista();
+            });
+        }
+
+        function renderizarLista(filtro = '') {
+            const termo = filtro.trim().toLowerCase();
+            const ordenado = banco
+                .map((c, i) => ({ titulo: c.titulo, texto: c.texto, idx: i }))
+                .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+            cifraSelector.innerHTML = '<option value="" disabled selected>Selecione uma cifra...</option>';
+            ordenado.forEach((cifra) => {
+                if (termo && !cifra.titulo.toLowerCase().includes(termo)) return;
+                const option = document.createElement('option');
+                option.value = cifra.idx;
+                option.textContent = cifra.titulo;
+                cifraSelector.appendChild(option);
+            });
+        }
+
+        searchBox.addEventListener('input', (e) => {
+            renderizarLista(e.target.value);
+            renderizarResultadosBusca(e.target.value);
+        });
+
+        function renderizarResultadosBusca(filtro = '') {
+            const termo = filtro.trim().toLowerCase();
+            if (!termo) {
+                searchResults.classList.remove('show');
+                searchResults.innerHTML = '';
+                return;
+            }
+            const encontrados = banco
+                .map((c, i) => ({ titulo: c.titulo, idx: i }))
+                .filter(c => c.titulo.toLowerCase().includes(termo))
+                .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+
+            if (encontrados.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-empty">Nenhuma cifra encontrada</div>';
+            } else {
+                searchResults.innerHTML = encontrados.map(c =>
+                    `<div class="search-result-item" data-idx="${c.idx}">${escapeHtml(c.titulo)}</div>`
+                ).join('');
+            }
+            searchResults.classList.add('show');
+        }
+
+        searchResults.addEventListener('click', (e) => {
+            const item = e.target.closest('.search-result-item[data-idx]');
+            if (!item) return;
+            cifraSelector.value = item.dataset.idx;
+            cifraSelector.dispatchEvent(new Event('change'));
+            searchBox.value = '';
+            renderizarLista('');
+            searchResults.classList.remove('show');
+            searchResults.innerHTML = '';
+        });
+
+        searchBox.addEventListener('focus', () => {
+            if (searchBox.value.trim()) renderizarResultadosBusca(searchBox.value);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchResults.classList.contains('show')) return;
+            if (e.target === searchBox || searchResults.contains(e.target)) return;
+            searchResults.classList.remove('show');
+        });
+
+        // ===== Detecção e destaque de linhas de acorde =====
+        // ===== Detecção e destaque de linhas de acorde =====
+        // RegEx atualizada para aceitar TANTO o ordinal (º) quanto o grau (°) em acordes diminutos
+        const CHORD_TOKEN = /^[A-G](#|b)?(m|M|maj|min|dim|aug|sus|add|º|°)?\d{0,2}(m|M|maj|min|dim|aug|sus|add|º|°)?([#b\+\-]\d{1,2}|\d{1,2}[#b\+\-])?(\([^)]+\))?(\/[A-G](#|b)?)?$/;
+
+        function ehLinhaDeAcordes(linha) {
+            const trimmed = linha.trim();
+            if (!trimmed) return false;
+            
+            // Remove tags estruturais no início para não sujar a matemática dos acordes
+            const linhaLimpa = trimmed.replace(/^\[.+?\]|^\(.+?\)|\b[A-Za-zÀ-ÿ]+:/g, '').trim();
+            if (!linhaLimpa) return false;
+
+            const tokens = linhaLimpa.split(/\s+/);
+            if (tokens.length === 0) return false;
+            
+            const validos = tokens.filter(t => CHORD_TOKEN.test(t));
+            
+            // Relaxamos a taxa de acerto para 65% para garantir estabilidade em linhas com muito lixo
+            return validos.length / tokens.length >= 0.65;
+        }
+
+        // ===== Detecção e ocultação de blocos de tablatura (diagramas de traste) =====
+        function ehLinhaDeTablatura(linha) {
+            const t = linha.trim();
+            if (t.length < 6) return false;
+            if (!/[-|]/.test(t)) return false;
+            const relevantes = (t.match(/[0-9hpbrx\/\\~\-|]/gi) || []).length;
+            return relevantes / t.length >= 0.6;
+        }
+
+        // Junta linhas de tablatura consecutivas em blocos. Blocos com 2+ linhas (diagrama real
+        // de várias cordas) são substituídos por um aviso quando ocultos; linha isolada (riff rápido
+        // escrito numa única linha) nunca é escondida.
+        function prepararLinhasComTablatura(linhas) {
+            const resultado = [];
+            let i = 0;
+            while (i < linhas.length) {
+                const linhaAtual = linhas[i];
+                
+                // Se a tablatura estiver oculta, engole linhas vazias extras que ficariam sobrando
+                if (!mostrarTablaturas && linhaAtual.trim() === '') {
+                    i++;
+                    continue;
+                }
+
+                if (ehLinhaDeTablatura(linhaAtual)) {
+                    let j = i;
+                    // Avança englobando tablaturas e possíveis espaços soltos no meio do bloco
+                    while (j < linhas.length && (ehLinhaDeTablatura(linhas[j]) || linhas[j].trim() === '')) {
+                        j++;
+                    }
+                    
+                    const tamanhoBloco = j - i;
+                    if (tamanhoBloco >= 2 && !mostrarTablaturas) {
+                        let anterior = resultado.length > 0 ? resultado[resultado.length - 1] : '';
+                        const rotulo = anterior.trim().match(/^[\[\(](.+?)[\]\)]$/);
+                        const nome = rotulo ? rotulo[1] : 'Tab';
+                        
+                        // Se encontrou um rótulo na linha de cima (ex: [Intro]), substitui ele pelo aviso
+                        if (rotulo) {
+                            resultado[resultado.length - 1] = `🎸 [${nome} suprimida]`;
+                        } else {
+                            resultado.push(`🎸 [${nome} suprimida]`);
+                        }
+                    } else {
+                        for (let k = i; k < j; k++) {
+                            if (linhas[k].trim() !== '') resultado.push(linhas[k]);
+                        }
+                    }
+                    i = j;
+                } else {
+                    resultado.push(linhaAtual);
+                    i++;
+                }
+            }
+            return resultado;
+        }
+
+        let mostrarTablaturas = localStorage.getItem('mostrarTablaturas') === '1';
+
+        function atualizarBotaoTablaturas() {
+            btnTablaturas.style.backgroundColor = mostrarTablaturas ? '#28a745' : '';
+        }
+        atualizarBotaoTablaturas();
+
+        btnTablaturas.addEventListener('change', () => {
+            mostrarTablaturas = btnTablaturas.checked;
+            localStorage.setItem('mostrarTablaturas', mostrarTablaturas ? '1' : '0');
+            rerenderizarConteudoAtual();
+        });
+
+        // ao carregar a página, sincronize o estado inicial do toggle
+        btnTablaturas.checked = mostrarTablaturas;
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ===== Transposição =====
+        const NOTAS_SUSTENIDO = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const NOTAS_BEMOL = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+        function transporChord(token, semitons) {
+            const partes = token.split('/'); // Separa o acorde do baixo invertido
+            
+            const transporNota = (notaStr) => {
+                const m = notaStr.match(/^([A-G])(#|b)?(.*)$/);
+                if (!m) return notaStr;
+                const [, letra, acidente, resto] = m;
+                const notaOriginal = letra + (acidente || '');
+                const usaSustenido = acidente !== 'b';
+                let idx = NOTAS_SUSTENIDO.indexOf(notaOriginal);
+                if (idx === -1) idx = NOTAS_BEMOL.indexOf(notaOriginal);
+                if (idx === -1) return notaStr;
+                let novoIdx = (idx + semitons + 12) % 12;
+                const novaNota = usaSustenido ? NOTAS_SUSTENIDO[novoIdx] : NOTAS_BEMOL[novoIdx];
+                return novaNota + resto;
+            };
+
+            const acordePrincipal = transporNota(partes[0]);
+            if (partes.length > 1) {
+                const baixoTransposto = transporNota(partes[1]);
+                return `${acordePrincipal}/${baixoTransposto}`;
+            }
+            return acordePrincipal;
+        }
+
+        // ===== Diagramas de acorde: variações (Sistema CAGED) =====
+        const OPEN_SEMI = [4, 9, 2, 7, 11, 4]; // semitons de cada corda solta (6->1)
+
+        // Formatos abertos conhecidos ('x' = corda muda)
+        const OPEN_SHAPES = {
+            'C':     ['x', 3, 2, 0, 1, 0],
+            'Cmaj7': ['x', 3, 2, 0, 0, 0],
+            'C7M':   ['x', 3, 2, 0, 0, 0],
+            'C9':    ['x', 3, 2, 3, 3, 'x'],
+            'C7':    ['x', 3, 2, 3, 1, 0],
+            'D':     ['x', 'x', 0, 2, 3, 2],
+            'Dm':    ['x', 'x', 0, 2, 3, 1],
+            'D7':    ['x', 'x', 0, 2, 1, 2],
+            'Dmaj7': ['x', 'x', 0, 2, 2, 2],
+            'D7M':   ['x', 'x', 0, 2, 2, 2],
+            'E':     [0, 2, 2, 1, 0, 0],
+            'Em':    [0, 2, 2, 0, 0, 0],
+            'E7':    [0, 2, 0, 1, 0, 0],
+            'Emaj7': [0, 2, 1, 1, 0, 0],
+            'E7M':   [0, 2, 1, 1, 0, 0],
+            'G':     [3, 2, 0, 0, 0, 3],
+            'G7':    [3, 2, 0, 0, 0, 1],
+            'Gmaj7': [3, 2, 0, 0, 0, 2],
+            'G7M':   [3, 2, 0, 0, 0, 2],
+            'A':     ['x', 0, 2, 2, 2, 0],
+            'Am':    ['x', 0, 2, 2, 1, 0],
+            'Am7':   ['x', 0, 2, 0, 1, 0],
+            'Amaj7': ['x', 0, 2, 1, 2, 0],
+            'A7M':   ['x', 0, 2, 1, 2, 0],
+            'A7':    ['x', 0, 2, 0, 2, 0],
+            'B7':    ['x', 2, 1, 2, 0, 2]
+        };
+
+        // Formatos Móveis (Shapes) de E, A e D com offset inteligente para notas complexas
+        const SHAPES = [
+            { root: 0, rel: 0, name: 'Forma E', qual: '', frets: [0, 2, 2, 1, 0, 0] },
+            { root: 0, rel: 0, name: 'Forma Em', qual: 'm', frets: [0, 2, 2, 0, 0, 0] },
+            { root: 0, rel: 0, name: 'Forma E7', qual: '7', frets: [0, 2, 0, 1, 0, 0] },
+            { root: 0, rel: 0, name: 'Forma Em7', qual: 'm7', frets: [0, 2, 0, 0, 0, 0] },
+            { root: 0, rel: 0, name: 'Forma E7M', qual: 'maj7', frets: [0, 'x', 1, 1, 0, 'x'] },
+            { root: 0, rel: 0, name: 'Forma Esus', qual: 'sus4', frets: [0, 2, 2, 2, 0, 0] },
+            { root: 0, rel: 1, name: 'Forma Em7b5', qual: 'm7b5', frets: [1, 'x', 1, 1, 0, 'x'] },
+            { root: 0, rel: 1, name: 'Forma Edim', qual: 'dim', frets: [1, 'x', 0, 1, 0, 'x'] },
+            
+            { root: 1, rel: 0, name: 'Forma A', qual: '', frets: ['x', 0, 2, 2, 2, 0] },
+            { root: 1, rel: 0, name: 'Forma Am', qual: 'm', frets: ['x', 0, 2, 2, 1, 0] },
+            { root: 1, rel: 0, name: 'Forma A7', qual: '7', frets: ['x', 0, 2, 0, 2, 0] },
+            { root: 1, rel: 0, name: 'Forma Am7', qual: 'm7', frets: ['x', 0, 2, 0, 1, 0] },
+            { root: 1, rel: 0, name: 'Forma A7M', qual: 'maj7', frets: ['x', 0, 2, 1, 2, 0] },
+            { root: 1, rel: 0, name: 'Forma Asus', qual: 'sus4', frets: ['x', 0, 2, 2, 3, 0] },
+            { root: 1, rel: 0, name: 'Forma Am7b5', qual: 'm7b5', frets: ['x', 0, 1, 0, 1, 'x'] },
+            { root: 1, rel: 1, name: 'Forma Adim', qual: 'dim', frets: ['x', 1, 2, 0, 2, 'x'] },
+            { root: 1, rel: 1, name: 'Forma A9', qual: '9', frets: ['x', 1, 0, 1, 1, 1] },
+            
+            { root: 2, rel: 0, name: 'Forma D', qual: '', frets: ['x', 'x', 0, 2, 3, 2] },
+            { root: 2, rel: 0, name: 'Forma Dm', qual: 'm', frets: ['x', 'x', 0, 2, 3, 1] },
+            { root: 2, rel: 0, name: 'Forma D7', qual: '7', frets: ['x', 'x', 0, 2, 1, 2] },
+            { root: 2, rel: 0, name: 'Forma Dm7', qual: 'm7', frets: ['x', 'x', 0, 2, 1, 1] },
+            { root: 2, rel: 0, name: 'Forma D7M', qual: 'maj7', frets: ['x', 'x', 0, 2, 2, 2] },
+
+            { root: 1, rel: 3, name: 'Forma C', qual: '', frets: ['x', 3, 2, 0, 1, 0] },
+            { root: 1, rel: 3, name: 'Forma C7', qual: '7', frets: ['x', 3, 2, 3, 1, 0] },
+            { root: 1, rel: 3, name: 'Forma C7M', qual: 'maj7', frets: ['x', 3, 2, 0, 0, 0] },
+
+            { root: 0, rel: 3, name: 'Forma G', qual: '', frets: [3, 2, 0, 0, 0, 3] },
+            { root: 0, rel: 3, name: 'Forma G7', qual: '7', frets: [3, 2, 0, 0, 0, 1] },
+            { root: 0, rel: 3, name: 'Forma G7M', qual: 'maj7', frets: [3, 2, 0, 0, 0, 2] }
+        ];
+
+        // ===== Funções utilitárias resgatadas =====
+        function parseChordFull(token) {
+            const m = token.match(/^([A-G])(#|b)?([^\/]*)/);
+            if (!m) return null;
+            const [, letra, acidente, sufixo] = m;
+            return { nota: letra + (acidente || ''), sufixo: sufixo || '' };
+        }
+
+        function notaDaCorda(stringIdx, fretAbs) {
+            if (fretAbs < 0 || fretAbs === 'x') return 'x';
+            const idx = (OPEN_SEMI[stringIdx] + fretAbs) % 12;
+            return NOTAS_SUSTENIDO[idx];
+        }
+        // ==========================================
+
+        function normalizarQualidade(sufixo) {
+            let s = sufixo.toLowerCase();
+            // Mapeia todas as extensões malucas brasileiras para o núcleo harmônico da tríade/tétrade
+            if (s.includes('m7b5') || s.includes('m7(b5)') || s.includes('m7(5-)')) return 'm7b5';
+            if (s.includes('dim7') || s.includes('dim7')) return 'dim';
+            if (s.includes('dim') || s.includes('º') || s.includes('°')) return 'dim';
+            if (s.includes('maj7') || s.includes('7m')) return 'maj7';
+            if (s.includes('m9') || s.includes('m11') || s.includes('m13')) return 'm7';
+            if (s.includes('m6')) return 'm';
+            if (s.includes('m7')) return 'm7';
+            if (s.includes('m') && !s.includes('maj') && !s.includes('7m')) return 'm';
+            if (s.includes('sus2')) return 'sus4';
+            if (s.includes('sus')) return 'sus4';
+            if (s.includes('add9') || s.includes('add2')) return '';
+            if (s.includes('6')) return '';
+            if (s.includes('9') || s.includes('11') || s.includes('13')) return '9';
+            if (s.includes('7')) return '7';
+            return '';
+        }
+
+        function getVariacoes(nota, sufixo) {
+            const variacoes = [];
+            const nomeCompleto = nota + sufixo;
+            const qualidadeReal = normalizarQualidade(sufixo);
+            const aproximado = (sufixo !== '' && qualidadeReal === ''); 
+
+            // 1. Busca primeiro nas formas abertas cravadas
+            if (OPEN_SHAPES[nomeCompleto]) {
+                variacoes.push({ tipo: 'Aberto', frets: OPEN_SHAPES[nomeCompleto], start: 0, aproximado: false, raiz: nota });
+            }
+
+            const notaPc = indiceNota(nota);
+            if (notaPc === -1) return variacoes;
+
+            // 2. Calcula as posições relativas baseadas nos 3 shapes móveis
+            SHAPES.forEach(shape => {
+                if (shape.qual === qualidadeReal || (shape.qual === '' && aproximado && qualidadeReal !== 'm' && qualidadeReal !== 'dim')) {
+                    const stringOpenPc = OPEN_SEMI[shape.root];
+                    let rootFret = (notaPc - stringOpenPc + 12) % 12;
+                    if (rootFret === 0 && shape.name !== 'Forma E') rootFret += 12;
+                    
+                    const visualStart = rootFret - shape.rel;
+                    // Se o acorde cair fora do braço ou for inalcançável, ignora
+                    if (visualStart < 0 || visualStart > 12) return;
+
+                    const absFrets = shape.frets.map(f => f === 'x' ? 'x' : visualStart + f);
+                    
+                    // Previne de sugerir um shape móvel que é idêntico ao aberto já listado
+                    const isDuplicate = variacoes.some(v => v.frets.join(',') === absFrets.join(','));
+                    if (!isDuplicate) {
+                         variacoes.push({
+                             tipo: visualStart === 0 ? 'Aberto' : shape.name,
+                             frets: absFrets,
+                             start: visualStart, 
+                             aproximado: (shape.qual !== sufixo && shape.qual === ''),
+                             raiz: nota
+                         });
+                    }
+                }
+            });
+
+            if (variacoes.length === 0) {
+                // Fallback seguro de emergência
+                variacoes.push({ tipo: 'Aprox', frets: [0,2,2,1,0,0].map(f => f + ((notaPc - 4 + 12)%12)), start: (notaPc - 4 + 12)%12, aproximado: true, raiz: nota });
+            }
+            return variacoes;
+        }
+
+        function gerarSVGAcorde(variacao, escala) {
+            escala = escala || 1;
+            const { frets, start, aproximado, raiz } = variacao;
+            const raizPc = indiceNota(raiz);
+            const numFrets = 4;
+            const w = 120, h = 150, margin = 20;
+            const stringGap = (w - 2 * margin) / 5;
+            const fretGap = (h - 2 * margin - 10) / numFrets;
+            const wFinal = Math.round(105 * escala);
+            const hFinal = Math.round(131 * escala);
+
+            let svg = `<svg viewBox="0 0 ${w} ${h}" width="${wFinal}" height="${hFinal}" xmlns="http://www.w3.org/2000/svg">`;
+
+            if (start > 0) {
+                svg += `<text x="${margin - 14}" y="${margin + 10}" font-size="10" fill="#aaa">${start}fr</text>`;
+            }
+
+            for (let s = 0; s < 6; s++) {
+                const x = margin + s * stringGap;
+                svg += `<line x1="${x}" y1="${margin}" x2="${x}" y2="${margin + numFrets * fretGap}" stroke="#888" stroke-width="1"/>`;
+            }
+            for (let f = 0; f <= numFrets; f++) {
+                const y = margin + f * fretGap;
+                const espessura = (f === 0 && start === 0) ? 3 : 1;
+                svg += `<line x1="${margin}" y1="${y}" x2="${margin + 5 * stringGap}" y2="${y}" stroke="#888" stroke-width="${espessura}"/>`;
+            }
+
+            const naPosicaoInicial = frets.filter(f => f === start && start > 0).length;
+            const temBarra = start > 0 && naPosicaoInicial >= 2;
+            if (temBarra) {
+                const yBarra = margin + fretGap * 0.5;
+                svg += `<rect x="${margin - 4}" y="${yBarra - 4}" width="${5 * stringGap + 8}" height="8" rx="4" fill="#ffb300" opacity="0.85"/>`;
+            }
+
+            frets.forEach((fretAbs, sIdx) => {
+                const x = margin + sIdx * stringGap;
+                
+                // Trata as cordas que não devem ser tocadas ('x')
+                if (fretAbs === 'x') {
+                    svg += `<text x="${x}" y="${margin - 8}" font-size="11" fill="#dc3545" text-anchor="middle" font-weight="bold">x</text>`;
+                    return;
+                }
+                
+                const nota = notaDaCorda(sIdx, fretAbs);
+                const notaPc = indiceNota(nota);
+                const funcaoNota = (raizPc !== -1 && notaPc !== -1) ? FUNCOES_INTERVALO[(notaPc - raizPc + 12) % 12] : '';
+
+                if (start === 0 && fretAbs === 0) {
+                    svg += `<circle cx="${x}" cy="${margin - 11}" r="9" fill="none" stroke="#28a745" stroke-width="1.5"/>`;
+                    svg += `<text x="${x}" y="${margin - 13}" font-size="7" fill="#28a745" text-anchor="middle" font-weight="bold">${nota}</text>`;
+                    svg += `<text x="${x}" y="${margin - 4}" font-size="6" fill="#28a745" text-anchor="middle">${funcaoNota}</text>`;
+                    return;
+                }
+                
+                let relPos = fretAbs;
+                if (start > 0) relPos = fretAbs - start + 1;
+
+                if (temBarra && relPos === 1) {
+                    const yB = margin + fretGap * 0.5;
+                    svg += `<text x="${x}" y="${yB + 3}" font-size="7" fill="#3a2a00" text-anchor="middle" font-weight="bold">${nota}<tspan font-size="5" dx="1">${funcaoNota}</tspan></text>`;
+                    return;
+                }
+                
+                const y = margin + (relPos - 0.5) * fretGap;
+                svg += `<circle cx="${x}" cy="${y}" r="9" fill="#ffb300"/>`;
+                svg += `<text x="${x}" y="${y - 1}" font-size="7" fill="#2a1e00" text-anchor="middle" font-weight="bold">${nota}</text>`;
+                svg += `<text x="${x}" y="${y + 7}" font-size="6" fill="#2a1e00" text-anchor="middle">${funcaoNota}</text>`;
+            });
+
+            svg += `</svg>`;
+            const sufixoLabel = aproximado ? ' *' : '';
+            return { svg, sufixoLabel };
+        }
+
+        function extrairAcordesUnicos(texto) {
+            const linhas = texto.split('\n');
+            const encontrados = [];
+            const vistos = new Set();
+            linhas.forEach(linha => {
+                if (!ehLinhaDeAcordes(linha)) return;
+                linha.trim().split(/\s+/).forEach(tok => {
+                    if (vistos.has(tok)) return;
+                    vistos.add(tok);
+                    encontrados.push(tok);
+                });
+            });
+            return encontrados;
+        }
+
+        // Conta TODAS as ocorrências de cada acorde (não só as únicas) — usado na detecção de tom,
+        // já que acordes mais frequentes (tônica, dominante) pesam mais na identificação do tom.
+        function contarOcorrenciasAcordes(texto) {
+            const linhas = texto.split('\n');
+            const contagem = {};
+            linhas.forEach(linha => {
+                if (!ehLinhaDeAcordes(linha)) return;
+                linha.trim().split(/\s+/).forEach(tok => {
+                    contagem[tok] = (contagem[tok] || 0) + 1;
+                });
+            });
+            return contagem;
+        }
+
+        // Guarda qual variação está sendo exibida por acorde (persiste enquanto o painel está aberto)
+        let variacaoSelecionada = {};
+
+        // ===== Função harmônica (grau/intervalo do acorde em relação ao tom) =====
+        // Notação por qualidade de intervalo: J=justa, M=maior, m=menor, A=aumentada
+        const FUNCOES_INTERVALO = ['1', '2m', '2M', '3m', '3M', '4J', '4A', '5J', '6m', '6M', '7m', '7M'];
+
+        function indiceNota(nota) {
+            let idx = NOTAS_SUSTENIDO.indexOf(nota);
+            if (idx === -1) idx = NOTAS_BEMOL.indexOf(nota);
+            return idx;
+        }
+
+        function funcaoAcorde(notaTonica, notaAcorde) {
+            const idxTonica = indiceNota(notaTonica);
+            const idxAcorde = indiceNota(notaAcorde);
+            if (idxTonica === -1 || idxAcorde === -1) return '';
+            const semitons = (idxAcorde - idxTonica + 12) % 12;
+            return FUNCOES_INTERVALO[semitons];
+        }
+
+        // ===== Detecção automática de tom a partir dos próprios acordes =====
+        // Graus diatônicos esperados (qualidade) por semitom de distância da tônica.
+        const DIATONICO_MAIOR = { 0: 'maj', 2: 'min', 4: 'min', 5: 'maj', 7: 'maj', 9: 'min', 11: 'dim' };
+        const DIATONICO_MENOR = { 0: 'min', 2: 'dim', 3: 'maj', 5: 'min', 7: 'maj', 8: 'maj', 10: 'maj' };
+        // (V do tom menor aceita maior OU menor, pois é comum usar a dominante maior — menor harmônica/melódica)
+
+        function classificarQualidade(sufixo) {
+            if (/^dim/.test(sufixo)) return 'dim';
+            if (/^aug/.test(sufixo)) return 'aug';
+            if (/^m(?!aj)/.test(sufixo)) return 'min';
+            return 'maj'; // cobre '', '7', 'maj7', 'sus4', 'add9' etc.
+        }
+
+        function detectarTom(texto) {
+            const contagem = contarOcorrenciasAcordes(texto);
+            const entradas = Object.entries(contagem)
+                .map(([tok, count]) => {
+                    const info = parseChordFull(tok);
+                    if (!info) return null;
+                    const rootPc = indiceNota(info.nota);
+                    if (rootPc === -1) return null;
+                    return { rootPc, qualidade: classificarQualidade(info.sufixo), count };
+                })
+                .filter(Boolean);
+
+            if (entradas.length === 0) return 'C';
+
+            let melhorScore = -1;
+            let melhorTom = 'C';
+            for (let tomPc = 0; tomPc < 12; tomPc++) {
+                for (const modo of ['maior', 'menor']) {
+                    const mapa = modo === 'maior' ? DIATONICO_MAIOR : DIATONICO_MENOR;
+                    let score = 0;
+                    entradas.forEach(({ rootPc, qualidade, count }) => {
+                        const offset = (rootPc - tomPc + 12) % 12;
+                        const esperada = mapa[offset];
+                        if (!esperada) return; // acorde fora da escala nesse tom candidato
+                        if (esperada === qualidade) {
+                            score += count;
+                        } else if (modo === 'menor' && offset === 7 && qualidade === 'min') {
+                            // V menor (natural) também conta, com peso levemente menor que o V maior
+                            score += count * 0.8;
+                        }
+                    });
+                    if (score > melhorScore) {
+                        melhorScore = score;
+                        melhorTom = NOTAS_SUSTENIDO[tomPc];
+                    }
+                }
+            }
+            return melhorTom;
+        }
+
+        // Tom escolhido por música (persistido por título da cifra) — sobrepõe a detecção automática
+        let tonsEscolhidos = JSON.parse(localStorage.getItem('tonsEscolhidos') || '{}');
+
+        function obterTomAtual(cifra, tokens, semitons) {
+            const titulo = cifra.titulo;
+            const tomBase = tonsEscolhidos[titulo] || detectarTom(cifra.texto);
+            return semitons !== 0 ? transporChord(tomBase, semitons) : tomBase;
+        }
+
+        // ===== Zoom do diagrama de acorde =====
+        let escalaAcorde = parseFloat(localStorage.getItem('escalaAcorde')) || 1.3;
+
+        function ajustarEscala(delta) {
+            escalaAcorde = Math.min(2.2, Math.max(0.8, +(escalaAcorde + delta).toFixed(2)));
+            localStorage.setItem('escalaAcorde', escalaAcorde);
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (chordPanel.classList.contains('show') && cifraEscolhida) {
+                renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+            }
+            if (chordPopup.classList.contains('show') && chordPopup.dataset.tokenAtual) {
+                atualizarConteudoPopup(chordPopup.dataset.tokenAtual);
+            }
+        }
+        btnZoomIn.addEventListener('click', () => ajustarEscala(0.15));
+        btnZoomOut.addEventListener('click', () => ajustarEscala(-0.15));
+
+        // Monta o HTML de uma caixa de acorde (diagrama + nome + função + navegação de variação).
+        // Reaproveitado tanto no painel lateral quanto no popup individual.
+        function boxAcordeHTML(tok, semitons, tomAtual) {
+            const info = parseChordFull(tok);
+            if (!info) return '';
+            const notaTransposta = semitons !== 0 ? transporChord(info.nota, semitons) : info.nota;
+            const nomeExibicao = notaTransposta + info.sufixo;
+            const variacoes = getVariacoes(notaTransposta, info.sufixo);
+            const funcao = funcaoAcorde(tomAtual, notaTransposta);
+
+            if (!(tok in variacaoSelecionada) || variacaoSelecionada[tok] >= variacoes.length) {
+                variacaoSelecionada[tok] = 0;
+            }
+            const idxAtual = variacaoSelecionada[tok];
+            const { svg, sufixoLabel } = gerarSVGAcorde(variacoes[idxAtual], escalaAcorde);
+
+            return `<div class="chord-diagram-box" data-token="${encodeURIComponent(tok)}">
+                ${svg}
+                <div style="font-weight:bold;">${nomeExibicao}${sufixoLabel}<span class="funcao-label">${funcao}</span></div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
+                    <button class="btn-sm var-prev" style="padding:2px 6px;">◀</button>
+                    <span style="font-size:10px;color:#999;min-width:70px;">${variacoes[idxAtual].tipo}</span>
+                    <button class="btn-sm var-next" style="padding:2px 6px;">▶</button>
+                </div>
+            </div>`;
+        }
+
+        function renderizarPainelAcordes(texto, semitons) {
+            const cifraEscolhida = banco[cifraSelector.value];
+            const tokens = extrairAcordesUnicos(texto);
+            const tomAtual = cifraEscolhida ? obterTomAtual(cifraEscolhida, tokens, semitons) : 'C';
+
+            let selectorHtml = `<div id="tomSelectorBox">Tom:
+                <select id="tomSelector">
+                    ${NOTAS_SUSTENIDO.map(n => `<option value="${n}" ${n === tomAtual ? 'selected' : ''}>${n}</option>`).join('')}
+                </select>
+            </div>`;
+
+            let html = '';
+            tokens.forEach(tok => { html += boxAcordeHTML(tok, semitons, tomAtual); });
+
+            chordPanel.style.flexBasis = Math.max(180, 105 * escalaAcorde + 70) + 'px';
+            chordPanel.innerHTML = selectorHtml + (html || '<div class="chord-diagram-box">Nenhum acorde detectado</div>');
+        }
+
+        // Troca manual do tom (dispara rerender do painel com as novas funções)
+        chordPanel.addEventListener('change', (e) => {
+            if (e.target.id !== 'tomSelector') return;
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (!cifraEscolhida) return;
+            tonsEscolhidos[cifraEscolhida.titulo] = e.target.value;
+            localStorage.setItem('tonsEscolhidos', JSON.stringify(tonsEscolhidos));
+            renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+        });
+
+        // Fecha o popup ao clicar fora dele (registrado ANTES do listener de navegação de variação
+        // abaixo: precisa rodar primeiro, enquanto o elemento clicado ainda está no DOM — se rodasse
+        // depois, o innerHTML do popup já teria sido trocado pela navegação e o clique pareceria "fora")
+        document.addEventListener('click', (e) => {
+            if (!chordPopup.classList.contains('show')) return;
+            if (chordPopup.contains(e.target) || e.target.closest('.chord-tok')) return;
+            if (e.target.closest('#btnZoomIn') || e.target.closest('#btnZoomOut')) return;
+            chordPopup.classList.remove('show');
+        });
+
+        // Navegação entre variações (delegação única, cobre painel lateral E popup individual)
+        document.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('var-next') && !e.target.classList.contains('var-prev')) return;
+            const box = e.target.closest('.chord-diagram-box');
+            if (!box) return;
+            const chave = decodeURIComponent(box.dataset.token);
+            const info = parseChordFull(chave);
+            if (!info) return;
+
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (!cifraEscolhida) return;
+            const notaTransposta = transposeAtual !== 0 ? transporChord(info.nota, transposeAtual) : info.nota;
+            const variacoes = getVariacoes(notaTransposta, info.sufixo);
+            const atual = variacaoSelecionada[chave] || 0;
+
+            if (e.target.classList.contains('var-next')) {
+                variacaoSelecionada[chave] = (atual + 1) % variacoes.length;
+            } else {
+                variacaoSelecionada[chave] = (atual - 1 + variacoes.length) % variacoes.length;
+            }
+
+            if (box.closest('#chordPanel')) {
+                renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+            } else if (box.closest('#chordPopup')) {
+                atualizarConteudoPopup(chave);
+            }
+        });
+
+        btnAcordes.addEventListener('change', () => {
+            const mostrar = btnAcordes.checked;
+            chordPanel.classList.toggle('show', mostrar);
+            zoomGroup.classList.toggle('show', mostrar);
+            if (mostrar) {
+                const cifraEscolhida = banco[cifraSelector.value];
+                if (cifraEscolhida) renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+            }
+        });
+
+        // ===== Popup de acorde individual (clique num acorde direto na letra) =====
+        function atualizarConteudoPopup(tok) {
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (!cifraEscolhida) return;
+            const tokensTodos = extrairAcordesUnicos(cifraEscolhida.texto);
+            const tomAtual = obterTomAtual(cifraEscolhida, tokensTodos, transposeAtual);
+            const boxHtml = boxAcordeHTML(tok, transposeAtual, tomAtual);
+            if (!boxHtml) return;
+            chordPopup.dataset.tokenAtual = tok;
+            chordPopup.innerHTML = '<button id="btnFecharPopup" class="btn-sm btn-danger">✕</button>' + boxHtml;
+        }
+
+        function posicionarPopup(x, y) {
+            requestAnimationFrame(() => {
+                const rect = chordPopup.getBoundingClientRect();
+                let left = x + 14;
+                let top = y + 14;
+                if (left + rect.width > window.innerWidth - 8) left = x - rect.width - 14;
+                if (left < 8) left = 8;
+                if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
+                if (top < 8) top = 8;
+                chordPopup.style.left = left + 'px';
+                chordPopup.style.top = top + 'px';
+            });
+        }
+
+        function abrirPopupAcorde(tok, x, y) {
+            atualizarConteudoPopup(tok);
+            chordPopup.classList.add('show');
+            if (typeof x === 'number' && typeof y === 'number') {
+                posicionarPopup(x, y);
+            } else {
+                requestAnimationFrame(() => {
+                    const rect = chordPopup.getBoundingClientRect();
+                    chordPopup.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
+                    chordPopup.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
+                });
+            }
+        }
+
+        chordPopup.addEventListener('click', (e) => {
+            if (e.target.id === 'btnFecharPopup') chordPopup.classList.remove('show');
+        });
+
+        // ===== Quebra de linha sincronizada (acorde junto com a palavra correspondente) =====
+        // Mede a largura real de um caractere monoespaçado no tamanho de fonte atual,
+        // pra saber quantos caracteres cabem numa linha antes de quebrar.
+        function calcularMaxChars() {
+            const estilo = getComputedStyle(content);
+            const paddingH = parseFloat(estilo.paddingLeft || 0) + parseFloat(estilo.paddingRight || 0);
+            const larguraDisponivel = content.clientWidth - paddingH;
+            const probe = document.createElement('span');
+            probe.style.fontFamily = estilo.fontFamily;
+            probe.style.fontSize = estilo.fontSize;
+            probe.style.position = 'absolute';
+            probe.style.visibility = 'hidden';
+            probe.style.whiteSpace = 'pre';
+            probe.textContent = 'M'.repeat(50);
+            document.body.appendChild(probe);
+            const larguraChar = probe.getBoundingClientRect().width / 50;
+            document.body.removeChild(probe);
+            if (!larguraChar || larguraDisponivel <= 0) return 60;
+            return Math.max(10, Math.floor((larguraDisponivel / larguraChar) * 0.97));
+        }
+
+        function isSpaceAt(str, idx) {
+            if (idx >= str.length) return true; // além do fim da string conta como "vazio"
+            return str[idx] === ' ';
+        }
+
+        // Quebra um par (linha de acorde + linha de letra) mantendo as colunas alinhadas,
+        // sempre cortando num ponto onde NÃO há acorde (pra nunca partir um acorde ao meio).
+        function quebrarParDeLinhas(linhaAcorde, linhaLetra, maxChars) {
+            const total = Math.max(linhaAcorde.length, linhaLetra.length);
+            if (total <= maxChars) return [[linhaAcorde, linhaLetra]];
+            const resultado = [];
+            let pos = 0;
+            while (pos < total) {
+                let fim = Math.min(pos + maxChars, total);
+                if (fim < total) {
+                    const limite = pos + Math.max(1, Math.floor(maxChars * 0.4));
+                    // 1) melhor caso: ponto que é espaço em AMBAS as linhas (não corta acorde nem palavra)
+                    let corteIdeal = -1;
+                    for (let c = fim; c > limite; c--) {
+                        if (isSpaceAt(linhaAcorde, c) && isSpaceAt(linhaLetra, c)) { corteIdeal = c; break; }
+                    }
+                    if (corteIdeal > limite) {
+                        fim = corteIdeal;
+                    } else {
+                        // 2) senão, aceita espaço só na linha de acorde (nunca corta um acorde ao meio)
+                        let corte = fim;
+                        while (corte > limite && !isSpaceAt(linhaAcorde, corte)) corte--;
+                        if (corte > limite) fim = corte;
+                    }
+                }
+                resultado.push([linhaAcorde.slice(pos, fim), linhaLetra.slice(pos, fim)]);
+                pos = fim;
+                while (pos < total && isSpaceAt(linhaAcorde, pos) && isSpaceAt(linhaLetra, pos)) pos++;
+            }
+            return resultado;
+        }
+
+        // Quebra uma linha comum (sem par) respeitando limites de palavra
+        function quebrarLinhaSimples(linha, maxChars) {
+            if (linha.length <= maxChars) return [linha];
+            const palavras = linha.split(' ');
+            const resultado = [];
+            let atual = '';
+            palavras.forEach(p => {
+                if (atual === '') atual = p;
+                else if ((atual + ' ' + p).length <= maxChars) atual += ' ' + p;
+                else { resultado.push(atual); atual = p; }
+            });
+            if (atual) resultado.push(atual);
+            return resultado.length ? resultado : [linha];
+        }
+
+        // Modo compacto: remove linhas em branco pra aproveitar mais a tela
+        let modoCompacto = localStorage.getItem('modoCompacto') !== '0';
+
+        btnCompacto.checked = modoCompacto;
+
+        btnCompacto.addEventListener('change', () => {
+            modoCompacto = btnCompacto.checked;
+            localStorage.setItem('modoCompacto', modoCompacto ? '1' : '0');
+            rerenderizarConteudoAtual();
+        });
+
+        function renderizarConteudo(texto, semitons) {
+            let linhasOriginais = texto.split('\n');
+            linhasOriginais = prepararLinhasComTablatura(linhasOriginais);
+            
+            // --- NOVO: Limpeza pesada para o modo Só Letra ---
+            if (mostrarSoLetra) {
+                linhasOriginais = linhasOriginais.filter(l => {
+                    const txt = l.trim().toLowerCase();
+                    // 1. Remove o ícone de guitarra gerado pelo nosso próprio sistema
+                    if (txt.startsWith('🎸') || txt.includes('suprimida]')) return false;
+                    // 2. Remove cabeçalhos inúteis originais do CifraClub (ex: [Tab - Solo], [Tablaturas])
+                    if (txt.startsWith('[tab') && txt.endsWith(']')) return false;
+                    // 3. Remove marcadores de paginação de dedo (ex: Parte 1 de 4)
+                    if (/^parte \d+ de \d+$/.test(txt)) return false;
+                    return true;
+                });
+            }
+            // -------------------------------------------------
+            
+            if (modoCompacto) {
+                linhasOriginais = linhasOriginais.filter(l => l.trim() !== '');
+            }
+            
+            const maxChars = calcularMaxChars();
+            const linhasFinais = [];
+
+            for (let i = 0; i < linhasOriginais.length; i++) {
+                const linha = linhasOriginais[i];
+                if (ehLinhaDeAcordes(linha)) {
+                    const proxima = linhasOriginais[i + 1];
+                    const proximaEhAcorde = proxima !== undefined && ehLinhaDeAcordes(proxima);
+                    if (proxima !== undefined && !proximaEhAcorde && proxima.trim() !== '') {
+                        // Par acorde + letra
+                        quebrarParDeLinhas(linha, proxima, maxChars).forEach(([ac, le]) => {
+                            if (!mostrarSoLetra) {
+                                linhasFinais.push({ tipo: 'chord', texto: ac });
+                            }
+                            linhasFinais.push({ tipo: 'texto', texto: le });
+                        });
+                        i++; // Pula a próxima linha, pois já foi processada como letra
+                    } else {
+                        // Linha de acorde solta (ex: introdução instrumental)
+                        if (!mostrarSoLetra) {
+                            quebrarLinhaSimples(linha, maxChars).forEach(l => linhasFinais.push({ tipo: 'chord', texto: l }));
+                        }
+                    }
+                } else {
+                    // Linha de texto normal
+                    quebrarLinhaSimples(linha, maxChars).forEach(l => linhasFinais.push({ tipo: 'texto', texto: l }));
+                }
+            }
+
+            let contadorPartes = 1; // Contador cronológico
+
+            const html = linhasFinais.map(l => {
+                if (l.tipo === 'chord') {
+                    const processada = l.texto.replace(/\S+/g, (tok) => {
+                        // NOVO: Se for uma tag colada na mesma linha do acorde, renderiza como badge!
+                        if (/^\[.+\]$|^\(.+\)$|^[A-Za-zÀ-ÿ]+:$/.test(tok)) {
+                            return `<span class="song-section" style="margin-top:0; padding:2px 6px; font-size:16px; vertical-align: middle;">${escapeHtml(tok)}</span>`;
+                        }
+                        const transposto = semitons !== 0 ? transporChord(tok, semitons) : tok;
+                        return `<span class="chord-tok" data-chord="${encodeURIComponent(tok)}">${escapeHtml(transposto)}</span>`;
+                    });
+                    return '<span class="chord-line">' + processada + '</span>';
+                }
+                
+                // Detecta se a linha de texto é uma tag de seção (ex: [Refrão], Intro:)
+                const textoTrimmed = l.texto.trim();
+                if (/^\[.+\]$|^\(.+\)$|^[A-Za-zÀ-ÿ]+:$/.test(textoTrimmed)) {
+                    let nomeTag = textoTrimmed;
+
+                    // INTERCEPTADOR de partes
+                    const regexPartes = /^[\[\(](?:primeira|segunda|terceira|quarta|quinta|sexta|sétima|setima|oitava|nona|décima|decima)?\s*parte\s*\d*[\]\)]$/i;
+                    
+                    if (regexPartes.test(nomeTag)) {
+                        nomeTag = `[Parte ${contadorPartes}]`;
+                        contadorPartes++;
+                    }
+
+                    return `<div class="song-section">${escapeHtml(nomeTag)}</div>`;
+                }
+
+                return escapeHtml(l.texto);
+            }).join('\n');
+            
+            content.innerHTML = html;
+        }
+
+        function rerenderizarConteudoAtual() {
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (cifraEscolhida) renderizarConteudo(cifraEscolhida.texto, transposeAtual);
+        }
+
+        // Re-renderiza (recalculando a quebra de linha) quando o tamanho da tela muda
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(rerenderizarConteudoAtual, 200);
+        });
+
+        // Clique num acorde dentro da letra abre o popup só daquele acorde
+        content.addEventListener('click', (e) => {
+            const tok = e.target.closest('.chord-tok');
+            if (!tok) return;
+            abrirPopupAcorde(decodeURIComponent(tok.dataset.chord), e.clientX, e.clientY);
+        });
+
+        // ===== Seleção de música =====
+        cifraSelector.addEventListener('change', (e) => {
+            const cifraEscolhida = banco[e.target.value];
+            if (cifraEscolhida) {
+                transposeAtual = 0;
+                transposeLabel.textContent = '0';
+                renderizarConteudo(cifraEscolhida.texto, 0);
+                window.scrollTo(0, 0);
+                if (isPlaying) toggleBtn.click();
+                content.style.display = 'block';
+                songBar.style.display = 'flex';
+                if (chordPanel.classList.contains('show')) renderizarPainelAcordes(cifraEscolhida.texto, 0);
+            }
+        });
+
+        btnTransposeUp.addEventListener('click', () => {
+            transposeAtual++;
+            transposeLabel.textContent = (transposeAtual > 0 ? '+' : '') + transposeAtual;
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (cifraEscolhida) {
+                renderizarConteudo(cifraEscolhida.texto, transposeAtual);
+                if (chordPanel.classList.contains('show')) renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+            }
+        });
+
+        btnTransposeDown.addEventListener('click', () => {
+            transposeAtual--;
+            transposeLabel.textContent = (transposeAtual > 0 ? '+' : '') + transposeAtual;
+            const cifraEscolhida = banco[cifraSelector.value];
+            if (cifraEscolhida) {
+                renderizarConteudo(cifraEscolhida.texto, transposeAtual);
+                if (chordPanel.classList.contains('show')) renderizarPainelAcordes(cifraEscolhida.texto, transposeAtual);
+            }
+        });
+
+        // ===== Auto-scroll =====
+        // OBS: scrollBy arredonda valores fracionários de px em muitos navegadores,
+        // então usamos acumulador baseado em tempo real (não em contagem de frames)
+        // pra ter velocidade suave e consistente, com controle fino no mínimo.
+        let ultimoTimestamp = null;
+        let pxAcumulado = 0;
+
+        function pxPorSegundo(valorSlider) {
+            // escala: 3px/s (bem devagar) até 220px/s (rápido), curva suave
+            const min = 3, max = 220;
+            const t = (valorSlider - 1) / 99; // normaliza 1..100 -> 0..1
+            return min + (max - min) * Math.pow(t, 1.6);
+        }
+
+        function scrollPage(timestamp) {
+            if (!isPlaying) return;
+            if (ultimoTimestamp === null) ultimoTimestamp = timestamp;
+            const deltaSegundos = (timestamp - ultimoTimestamp) / 1000;
+            ultimoTimestamp = timestamp;
+
+            pxAcumulado += pxPorSegundo(speedInput.value) * deltaSegundos;
+            const inteiro = Math.floor(pxAcumulado);
+            
+            if (inteiro >= 1) {
+                window.scrollBy(0, inteiro);
+                pxAcumulado -= inteiro;
+            }
+
+            // --- Lógica do Pontinho Inteligente ---
+            const marcador = document.getElementById('focusMarker');
+            if (marcador) {
+                // Altura total rolável do documento
+                const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+                const scrollAtual = Math.ceil(window.scrollY);
+                
+                if (maxScroll > 0) {
+                    const progresso = scrollAtual / maxScroll;
+                    
+                    // 1. Alerta de fim de música (últimos 10%)
+                    if (progresso > 0.9) {
+                        marcador.style.backgroundColor = '#dc3545'; // Fica vermelho
+                        marcador.style.boxShadow = '0 0 10px #dc3545';
+                    } else {
+                        marcador.style.backgroundColor = 'var(--chord-color)'; // Volta pra cor do acorde
+                        marcador.style.boxShadow = '0 0 10px var(--chord-color)';
+                    }
+
+                    // 2. Guia final: Quando o scroll bate no fundo, o pontinho desce
+                    if (scrollAtual >= maxScroll - 1) {
+                        let topAtual = parseFloat(marcador.style.top || '35');
+                        // Faz o pontinho descer lentamente até 85% da tela pra acompanhar o final do texto
+                        if (topAtual < 85) {
+                            // A velocidade da descida do pontinho acompanha a velocidade setada no slider
+                            marcador.style.top = (topAtual + (pxPorSegundo(speedInput.value) * 0.005)) + '%';
+                        }
+                    } else {
+                        // Mantém na âncora fixa de 35% enquanto está rolando normalmente
+                        marcador.style.top = '35%'; 
+                    }
+                } else {
+                    // Se a música for muito curta e não tiver scroll, fixa no topo
+                    marcador.style.top = '35%';
+                }
+            }
+            // --------------------------------------
+
+            animationId = requestAnimationFrame(scrollPage);
+        }
+
+        function ativarWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(function (lock) {
+                        wakeLock = lock;
+                        wakeStatus.textContent = '🔒 Tela mantida ativa';
+                        wakeLock.addEventListener('release', () => {
+                            wakeStatus.textContent = '';
+                        });
+                    }).catch(function () {
+                        wakeStatus.textContent = '⚠️ Não foi possível manter a tela ativa';
+                    });
+                } else {
+                    wakeStatus.textContent = '⚠️ Este navegador não suporta manter a tela ativa - ajuste o brilho/bloqueio manualmente';
+                }
+            } catch (err) {
+                wakeStatus.textContent = '⚠️ Não foi possível manter a tela ativa';
+            }
+        }
+
+        function liberarWakeLock() {
+            if (typeof wakeLock !== 'undefined' && wakeLock !== null) {
+                try {
+                    wakeLock.release();
+                } catch (err) {
+                    console.warn('Erro ao liberar a tela ativa:', err);
+                } finally {
+                    wakeLock = null;
+                    if (wakeStatus) wakeStatus.textContent = '';
+                }
+            }
+        }
+
+        // Reativa o wake lock se a aba voltar ao foco durante a reprodução (comportamento padrão do browser é liberar ao trocar de aba)
+        document.addEventListener('visibilitychange', () => {
+            if (isPlaying && document.visibilityState === 'visible') {
+                ativarWakeLock();
+            }
+        });
+
+        toggleBtn.addEventListener('click', () => {
+            if (cifraSelector.value === "") return;
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                document.body.classList.add('playing'); // <--- ADICIONAR AQUI
+                toggleBtn.textContent = 'Pausar';
+                toggleBtn.style.backgroundColor = '#dc3545';
+                ultimoTimestamp = null;
+                pxAcumulado = 0;
+                animationId = requestAnimationFrame(scrollPage);
+                ativarWakeLock();
+            } else {
+                document.body.classList.remove('playing'); // <--- ADICIONAR AQUI
+                toggleBtn.textContent = 'Iniciar';
+                toggleBtn.style.backgroundColor = '#007bff';
+                cancelAnimationFrame(animationId);
+                liberarWakeLock();
+            }
+        });
+
+        // Toque na tela alterna reprodução: pausa se estiver rolando, inicia se estiver parado.
+        // Toques num acorde (que abrem o popup) não mexem na reprodução.
+        content.addEventListener('click', (e) => {
+            if (e.target.closest('.chord-tok')) return;
+            if (cifraSelector.value === "") return;
+            toggleBtn.click();
+            if (!isPlaying) {
+                tapFlash.classList.add('show');
+                setTimeout(() => tapFlash.classList.remove('show'), 1200);
+            }
+        });
+
+        let fontResizeTimeout;
+        fontSizeInput.addEventListener('input', (e) => {
+            content.style.fontSize = e.target.value + 'px';
+            clearTimeout(fontResizeTimeout);
+            fontResizeTimeout = setTimeout(rerenderizarConteudoAtual, 150);
+        });
+
+        carregarNuvem();
+    </script>
+</body>
+</html>
