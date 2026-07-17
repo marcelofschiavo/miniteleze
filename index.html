@@ -594,9 +594,20 @@
             <button type="button" id="btnFontUp" class="btn-sm btn-zoom">+</button>
         </div>
     </div>
+    <!-- NOVO CONTROLE DO PEDAL AQUI -->
+    <div class="control-group">
+        <label>Pedal</label>
+        <div class="stepper">
+            <button type="button" id="btnPedalDown" class="btn-sm btn-zoom">−</button>
+            <span id="pedalValue">50%</span>
+            <button type="button" id="btnPedalUp" class="btn-sm btn-zoom">+</button>
+        </div>
+    </div>
+    <!-- Inputs ocultos para guardar os valores -->
     <input type="range" id="speed" min="1" max="100" value="15" style="display:none;">
     <input type="range" id="fontSize" min="8" max="80" value="24" style="display:none;">
-    </div>
+    <input type="range" id="pedalStep" min="10" max="100" step="10" value="50" style="display:none;">
+</div>
 
     <div id="wakeStatus" style="position:fixed;bottom:60px;left:0;right:0;text-align:center;font-size:10px;color:#888;"></div>
 
@@ -637,6 +648,34 @@
         const btnSpeedDown = document.getElementById('btnSpeedDown');
         const btnFontUp = document.getElementById('btnFontUp');
         const btnFontDown = document.getElementById('btnFontDown');
+
+        // --- LÓGICA DO BOTÃO DO PEDAL ---
+const pedalStepInput = document.getElementById('pedalStep');
+const pedalValue = document.getElementById('pedalValue');
+const btnPedalUp = document.getElementById('btnPedalUp');
+const btnPedalDown = document.getElementById('btnPedalDown');
+
+function atualizarPedalDisplay() { 
+    pedalValue.textContent = pedalStepInput.value + '%'; 
+}
+
+// Carrega a preferência salva anteriormente, se existir
+if (localStorage.getItem('pedalStep')) {
+    pedalStepInput.value = localStorage.getItem('pedalStep');
+}
+atualizarPedalDisplay();
+
+btnPedalUp.addEventListener('click', () => {
+    pedalStepInput.value = Math.min(100, parseInt(pedalStepInput.value) + 10);
+    atualizarPedalDisplay();
+    localStorage.setItem('pedalStep', pedalStepInput.value);
+});
+
+btnPedalDown.addEventListener('click', () => {
+    pedalStepInput.value = Math.max(10, parseInt(pedalStepInput.value) - 10);
+    atualizarPedalDisplay();
+    localStorage.setItem('pedalStep', pedalStepInput.value);
+});
 
         function atualizarSpeedDisplay() { speedValue.textContent = speedInput.value; }
         function atualizarFontDisplay() { fontSizeValue.textContent = fontSizeInput.value; }
