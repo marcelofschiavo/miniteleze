@@ -782,9 +782,12 @@ window.addEventListener('keydown', (e) => {
 
         const direcao = teclasDescida.includes(e.key) ? 1 : -1;
 
+        // behavior 'auto' (instantâneo) em vez de 'smooth': quando o teleprompter
+        // está rolando ao mesmo tempo, ele interrompe uma animação suave a cada
+        // frame, o que fazia a passada do pedal parecer fraca/travada.
         window.scrollBy({
             top: direcao * pixelsParaRolar,
-            behavior: 'smooth'
+            behavior: 'auto'
         });
     }
 });
