@@ -649,7 +649,34 @@
         const btnFontUp = document.getElementById('btnFontUp');
         const btnFontDown = document.getElementById('btnFontDown');
 
-        // (Lógica do pedal fica definida mais abaixo, junto do interceptador de teclas)
+        // --- LÓGICA DO BOTÃO DO PEDAL ---
+        // --- LÓGICA DO BOTÃO DO PEDAL ---
+        const pedalStepInput = document.getElementById('pedalStep');
+        const pedalValue = document.getElementById('pedalValue');
+        const btnPedalUp = document.getElementById('btnPedalUp');
+        const btnPedalDown = document.getElementById('btnPedalDown');
+
+        function atualizarPedalDisplay() { 
+            pedalValue.textContent = pedalStepInput.value + ' L'; 
+        }
+
+        // Carrega a preferência salva anteriormente, se existir
+        if (localStorage.getItem('pedalStep')) {
+            pedalStepInput.value = localStorage.getItem('pedalStep');
+        }
+        atualizarPedalDisplay();
+
+        btnPedalUp.addEventListener('click', () => {
+            pedalStepInput.value = Math.min(40, parseInt(pedalStepInput.value) + 1);
+            atualizarPedalDisplay();
+            localStorage.setItem('pedalStep', pedalStepInput.value);
+        });
+
+        btnPedalDown.addEventListener('click', () => {
+            pedalStepInput.value = Math.max(1, parseInt(pedalStepInput.value) - 1);
+            atualizarPedalDisplay();
+            localStorage.setItem('pedalStep', pedalStepInput.value);
+        });
 
         function atualizarSpeedDisplay() { speedValue.textContent = speedInput.value; }
         function atualizarFontDisplay() { fontSizeValue.textContent = fontSizeInput.value; }
