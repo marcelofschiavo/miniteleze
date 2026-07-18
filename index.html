@@ -60,10 +60,6 @@
             flex-wrap: wrap;
         }
 
-        
-        
-        
-
         #searchBox {
             width: 40%;
             max-width: 260px;
@@ -392,12 +388,6 @@
         }
         #tapFlash.show { transform: translateY(0); }
 
-        
-
-        
-
-        
-
         #controls {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -486,31 +476,51 @@
             100% { transform: scale(1.2); opacity: 1; }
         }
 
-        
-        
-        
-        #btnBookmarklet {
-            display: inline-block;
-            background: var(--bg-input);
-            color: #17a2b8;
-            padding: 2px 6px;
-            border-radius: 4px;
-            text-decoration: none;
-            border: 1px solid #17a2b8;
-            font-weight: bold;
-        }
         /* Overlay de Sincronização (Loading) */
-        
+        #syncOverlay {
+            display: none; /* Escondido por padrão */
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px); /* Efeito de vidro embaçado lindo */
+            z-index: 9999; /* Fica acima de TUDO, travando a interface */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
 
-        
+        #syncOverlay.show {
+            display: flex;
+        }
 
-        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-top: 5px solid var(--chord-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
 
-        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div id="focusMarker"></div>
+    <div id="syncOverlay">
+        <div class="spinner"></div>
+        <div id="syncOverlayText">Aguarde, carregando as cifras...</div>
+    </div>
 
     <div id="tapFlash">Pausado (toque na tela)</div>
 
@@ -522,6 +532,8 @@
         <select id="cifraSelector">
             <option value="" disabled selected>Selecione uma cifra...</option>
         </select>
+        <button id="btnNovaCifra" class="btn-success btn-sm">+ Nova</button>
+        <button id="btnEditar" class="btn-sm btn-warning">✏️ Editar</button>
         <button id="btnTema" class="btn-sm">🌙 Tema</button>
     </div>
     <div id="syncStatus" style="text-align:center;font-size:11px;color:#666;padding:4px;"></div>
@@ -570,11 +582,29 @@
     </div>
 
     <div id="mainArea">
-        <div id="content">Selecione uma música no menu acima.</div>
+        <div id="content">Selecione uma música no menu acima ou adicione/importe novas cifras.</div>
         <div id="chordPanel"></div>
     </div>
 
     <div id="chordPopup"></div>
+
+    <div id="editorArea" style="display:none;flex-direction:column;gap:12px;padding:16px;max-width:900px;margin:0 auto;">
+        <h2 id="editorTitle" style="margin:0;">Adicionar Nova Cifra</h2>
+        <input type="text" id="novaTitulo" placeholder="Digite o título da música" style="width:100%;box-sizing:border-box;">
+        <textarea id="novaLetra" placeholder="Cole a cifra aqui..." style="width:100%;height:50vh;background:var(--bg-textarea);color:var(--text);border:1px solid var(--border-input);border-radius:5px;padding:12px;font-family:'Courier New',Courier,monospace;font-size:15px;white-space:pre;overflow-x:auto;box-sizing:border-box;"></textarea>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="btnSalvarCifra" class="btn-success">Salvar (neste tablet)</button>
+            <button id="btnCancelar" class="btn-danger">Cancelar</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;">
+            💾 Isso salva só neste tablet (localStorage). Pra atualizar de vez o repertório
+            (e valer em qualquer dispositivo), baixe o JSON abaixo e substitua o
+            <code>repertorio.json</code> no seu repositório do GitHub/Vercel.
+            <div style="margin-top:8px;">
+                <button id="btnBaixarJson" class="btn-info btn-sm">⬇️ Baixar repertorio.json atualizado</button>
+            </div>
+        </div>
+    </div>
 
     <div id="controls">
     <button id="toggleBtn">Iniciar</button>
@@ -594,29 +624,38 @@
             <button type="button" id="btnFontUp" class="btn-sm btn-zoom">+</button>
         </div>
     </div>
-    <!-- NOVO CONTROLE DO PEDAL AQUI -->
-    <div class="control-group">
-        <label>Pedal</label>
-        <div class="stepper">
-            <button type="button" id="btnPedalDown" class="btn-sm btn-zoom">−</button>
-            <span id="pedalValue">50%</span>
-            <button type="button" id="btnPedalUp" class="btn-sm btn-zoom">+</button>
-        </div>
-    </div>
-    <!-- Inputs ocultos para guardar os valores -->
     <input type="range" id="speed" min="1" max="100" value="15" style="display:none;">
     <input type="range" id="fontSize" min="8" max="80" value="24" style="display:none;">
-    <input type="range" id="pedalStep" min="1" max="40" step="1" value="10" style="display:none;">
 </div>
+    <div id="wakeStatus"></div>
 
-    <div id="wakeStatus" style="position:fixed;bottom:60px;left:0;right:0;text-align:center;font-size:10px;color:#888;"></div>
-
-<script>
-        // ===== Sistema simplificado: apenas visualização (sem edição/nuvem) =====
-        let banco = [];
+    <script>
+        // ===== Estrutura de dados =====
+        // Acervo único (banco), sincronizado com a nuvem (JSONBin.io) + cache local pra funcionar offline.
+        // cifra = { titulo, texto }
+        let banco = JSON.parse(localStorage.getItem('bancoCache')) || [];
         let transposeAtual = 0;
+        let editandoIndex = null; // índice em `banco` sendo editado (null = nova cifra)
+        
+        // ===== Configuração Pública (Pode ficar no código) =====
+        const DEFAULT_CONFIG = { 
+            manifestId: '6a585236f5f4af5e2995aed1', // O ID público
+            apiKey: '$2a$10$9kBr.w2XKfL8Y0FhF0Qbd.if8fkIyl1fh9ycj6wjTyUCi1t6rN8HC'        // A Chave de LEITURA (Read-Only)
+        };
+
+        // Este sistema é somente leitura/visualização — sempre usa a chave pública de leitura.
+        let cloudConfig = DEFAULT_CONFIG;
 
         const content = document.getElementById('content');
+        const editorArea = document.getElementById('editorArea');
+        const editorTitle = document.getElementById('editorTitle');
+        const novaTitulo = document.getElementById('novaTitulo');
+        const novaLetra = document.getElementById('novaLetra');
+        const btnNovaCifra = document.getElementById('btnNovaCifra');
+        const btnEditar = document.getElementById('btnEditar');
+        const btnSalvarCifra = document.getElementById('btnSalvarCifra');
+        const btnCancelar = document.getElementById('btnCancelar');
+        const btnBaixarJson = document.getElementById('btnBaixarJson');
         const cifraSelector = document.getElementById('cifraSelector');
         const searchBox = document.getElementById('searchBox');
         const searchResults = document.getElementById('searchResults');
@@ -643,111 +682,226 @@
         const wakeStatus = document.getElementById('wakeStatus');
 
         const speedValue = document.getElementById('speedValue');
-        const fontSizeValue = document.getElementById('fontSizeValue');
-        const btnSpeedUp = document.getElementById('btnSpeedUp');
-        const btnSpeedDown = document.getElementById('btnSpeedDown');
-        const btnFontUp = document.getElementById('btnFontUp');
-        const btnFontDown = document.getElementById('btnFontDown');
+const fontSizeValue = document.getElementById('fontSizeValue');
+const btnSpeedUp = document.getElementById('btnSpeedUp');
+const btnSpeedDown = document.getElementById('btnSpeedDown');
+const btnFontUp = document.getElementById('btnFontUp');
+const btnFontDown = document.getElementById('btnFontDown');
 
-        // --- LÓGICA DO BOTÃO DO PEDAL ---
-        // --- LÓGICA DO BOTÃO DO PEDAL ---
-        const pedalStepInput = document.getElementById('pedalStep');
-        const pedalValue = document.getElementById('pedalValue');
-        const btnPedalUp = document.getElementById('btnPedalUp');
-        const btnPedalDown = document.getElementById('btnPedalDown');
+function atualizarSpeedDisplay() {
+    speedValue.textContent = speedInput.value;
+}
+function atualizarFontDisplay() {
+    fontSizeValue.textContent = fontSizeInput.value;
+}
 
-        function atualizarPedalDisplay() { 
-            pedalValue.textContent = pedalStepInput.value + ' L'; 
-        }
+btnSpeedUp.addEventListener('click', () => {
+    speedInput.value = Math.min(100, parseInt(speedInput.value) + 5);
+    atualizarSpeedDisplay();
+    speedInput.dispatchEvent(new Event('input'));
+});
+btnSpeedDown.addEventListener('click', () => {
+    speedInput.value = Math.max(1, parseInt(speedInput.value) - 5);
+    atualizarSpeedDisplay();
+    speedInput.dispatchEvent(new Event('input'));
+});
 
-        // Carrega a preferência salva anteriormente, se existir
-        if (localStorage.getItem('pedalStep')) {
-            pedalStepInput.value = localStorage.getItem('pedalStep');
-        }
-        atualizarPedalDisplay();
+btnFontUp.addEventListener('click', () => {
+    fontSizeInput.value = Math.min(80, parseInt(fontSizeInput.value) + 2);
+    atualizarFontDisplay();
+    fontSizeInput.dispatchEvent(new Event('input'));
+});
+btnFontDown.addEventListener('click', () => {
+    fontSizeInput.value = Math.max(8, parseInt(fontSizeInput.value) - 2);
+    atualizarFontDisplay();
+    fontSizeInput.dispatchEvent(new Event('input'));
+});
 
-        btnPedalUp.addEventListener('click', () => {
-            pedalStepInput.value = Math.min(40, parseInt(pedalStepInput.value) + 1);
-            atualizarPedalDisplay();
-            localStorage.setItem('pedalStep', pedalStepInput.value);
-        });
-
-        btnPedalDown.addEventListener('click', () => {
-            pedalStepInput.value = Math.max(1, parseInt(pedalStepInput.value) - 1);
-            atualizarPedalDisplay();
-            localStorage.setItem('pedalStep', pedalStepInput.value);
-        });
-
-        function atualizarSpeedDisplay() { speedValue.textContent = speedInput.value; }
-        function atualizarFontDisplay() { fontSizeValue.textContent = fontSizeInput.value; }
-
-        btnSpeedUp.addEventListener('click', () => {
-            speedInput.value = Math.min(100, parseInt(speedInput.value) + 5);
-            atualizarSpeedDisplay();
-            speedInput.dispatchEvent(new Event('input'));
-        });
-        btnSpeedDown.addEventListener('click', () => {
-            speedInput.value = Math.max(1, parseInt(speedInput.value) - 5);
-            atualizarSpeedDisplay();
-            speedInput.dispatchEvent(new Event('input'));
-        });
-        btnFontUp.addEventListener('click', () => {
-            fontSizeInput.value = Math.min(80, parseInt(fontSizeInput.value) + 2);
-            atualizarFontDisplay();
-            fontSizeInput.dispatchEvent(new Event('input'));
-        });
-        btnFontDown.addEventListener('click', () => {
-            fontSizeInput.value = Math.max(8, parseInt(fontSizeInput.value) - 2);
-            atualizarFontDisplay();
-            fontSizeInput.dispatchEvent(new Event('input'));
-        });
-
-        atualizarSpeedDisplay();
-        atualizarFontDisplay();
+atualizarSpeedDisplay();
+atualizarFontDisplay();
 
         let isPlaying = false;
         let animationId;
         let wakeLock = null;
 
         const btnSoLetra = document.getElementById('btnSoLetra');
+        // Força o padrão sempre desativado ao abrir a página, ignorando histórico
         let mostrarSoLetra = false;
         btnSoLetra.checked = false;
+
         btnSoLetra.addEventListener('change', () => {
             mostrarSoLetra = btnSoLetra.checked;
-            if (mostrarSoLetra && btnAcordes.checked) btnAcordes.click();
+            
+            // UX inteligente: Se ativou "Só Letra", desliga o painel lateral de acordes
+            if (mostrarSoLetra && btnAcordes.checked) {
+                btnAcordes.click(); 
+            }
+            
             rerenderizarConteudoAtual();
         });
 
-        function statusMsg(msg, cor) {
-            syncStatus.textContent = msg;
+        // ===== Tema claro/escuro =====
+        function aplicarTema(tema) {
+            document.body.classList.toggle('light-theme', tema === 'light');
+            btnTema.textContent = tema === 'light' ? '☀️ Tema' : '🌙 Tema';
+        }
+        let temaAtual = localStorage.getItem('tema') || 'dark';
+        aplicarTema(temaAtual);
+        btnTema.addEventListener('click', () => {
+            temaAtual = temaAtual === 'light' ? 'dark' : 'light';
+            localStorage.setItem('tema', temaAtual);
+            aplicarTema(temaAtual);
+        });
+
+        // ===== Sincronização com a nuvem (JSONBin.io) =====
+        // Estratégia: bin "manifesto" guarda só { chunkIds: [...] }.
+        // O acervo em si é fatiado em N bins de dados (cada um < LIMITE_BYTES),
+        // criados/apagados automaticamente conforme o acervo cresce/encolhe.
+        // cloudConfig = { manifestId, apiKey }
+        function statusMsg(texto, cor) {
+            syncStatus.textContent = texto;
             syncStatus.style.color = cor || '#666';
         }
 
-        // ===== Carregamento simples do repertorio.json (mesmo domínio, sem CORS) =====
-        async function carregarRepertorio() {
-            try {
-                const resp = await fetch('./repertorio.json', { cache: 'no-store' });
-                if (resp.ok) {
-                    const texto = await resp.text();
-                    if (texto.trim().startsWith('<')) {
-                        throw new Error('repertorio.json retornou HTML em vez de JSON');
-                    }
-                    const dados = JSON.parse(texto);
-                    if (Array.isArray(dados)) banco = dados;
-                } else {
-                    throw new Error('HTTP ' + resp.status);
-                }
-            } catch (e) {
-                console.error('Erro ao carregar repertorio.json:', e);
-                const cache = JSON.parse(localStorage.getItem('bancoCache') || '[]');
-                if (cache.length) {
-                    banco = cache;
-                    statusMsg('⚠️ Usando cópia local (sem conexão)', '#e0a800');
-                } else {
-                    statusMsg('❌ Não foi possível carregar as cifras', '#dc3545');
-                }
+        // Monta a mensagem exibida quando não foi possível buscar a nuvem agora
+        function mensagemAcervoLocal() {
+            const isoSalvo = localStorage.getItem('ultimoSyncOk');
+            let quando = 'nunca sincronizado';
+            if (isoSalvo) {
+                const d = new Date(isoSalvo);
+                const dataFmt = d.toLocaleDateString('pt-BR');
+                const horaFmt = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                quando = dataFmt + ' às ' + horaFmt;
             }
-            renderizarLista();
+            return '📦 Acervo de ' + quando + ' (modo leitura)';
+        }
+
+        // Busca um "bin" no JSONBin (somente leitura). Usa callbacks (onOk/onErr) em vez de
+        // async/await para funcionar também em navegadores mais antigos (ex: tablets antigos),
+        // que às vezes não suportam async/await e travam a página inteira com um erro de sintaxe.
+        function jsonbinGet(id, apiKey, onOk, onErr) {
+            fetch('https://api.jsonbin.io/v3/b/' + id + '/latest', {
+                headers: {
+                    'X-Master-Key': apiKey,
+                    'X-Access-Key': apiKey
+                }
+            }).then(function (resp) {
+                if (!resp.ok) throw new Error('Falha ao buscar bin ' + id + ': ' + resp.status);
+                return resp.json();
+            }).then(function (data) {
+                onOk(data.record);
+            }).catch(function (e) {
+                onErr(e);
+            });
+        }
+
+        // ===== Proteção contra Miss-click (Limpa a tela ao rolar) =====
+        window.addEventListener('scroll', () => {
+            // Se o autoscroll estiver rodando, não fecha o popup!
+            if (isPlaying) return;
+
+            if (chordPopup.classList.contains('show')) {
+                chordPopup.classList.remove('show');
+            }
+        });
+
+        // ===== Controle visual do Overlay de Loading =====
+        const syncOverlay = document.getElementById('syncOverlay');
+        const syncOverlayText = document.getElementById('syncOverlayText');
+
+        function mostrarOverlaySync(texto) {
+            syncOverlayText.textContent = texto;
+            syncOverlay.classList.add('show');
+        }
+
+        function esconderOverlaySync() {
+            syncOverlay.classList.remove('show');
+        }
+
+        // ===== Carregamento da nuvem (somente leitura) =====
+        // Reescrito sem async/await (usa .then/callbacks) para funcionar em navegadores
+        // antigos que não suportam essa sintaxe — nesses casos, um "async" no meio do script
+        // impede a página inteira de carregar (nada funciona, nem o menu nem as cifras).
+        function carregarNuvem() {
+            if (!cloudConfig || !cloudConfig.manifestId || !cloudConfig.apiKey) {
+                statusMsg('☁️ Nuvem não configurada — usando apenas cópia local.', '#e0a800');
+                if (banco.length === 0) {
+                    fetch('repertorio.json', { cache: 'no-store' }).then(function (resp) {
+                        return resp.ok ? resp.json() : null;
+                    }).then(function (dados) {
+                        if (Array.isArray(dados)) {
+                            banco = dados;
+                            localStorage.setItem('bancoCache', JSON.stringify(banco));
+                        }
+                        renderizarLista();
+                    }).catch(function () {
+                        renderizarLista();
+                    });
+                } else {
+                    renderizarLista();
+                }
+                return;
+            }
+
+            // TRAVA A TELA AQUI
+            mostrarOverlaySync('Aguarde, baixando seu acervo da nuvem...');
+            statusMsg('⏳ Sincronizando...', '#aaa');
+
+            jsonbinGet(cloudConfig.manifestId, cloudConfig.apiKey, function (manifesto) {
+                const chunkIds = (manifesto && Array.isArray(manifesto.chunkIds)) ? manifesto.chunkIds : [];
+                let dados = [];
+                let i = 0;
+
+                function proximoPedaco() {
+                    if (i >= chunkIds.length) {
+                        banco = dados;
+                        localStorage.setItem('bancoCache', JSON.stringify(banco));
+                        localStorage.setItem('ultimoSyncOk', new Date().toISOString());
+                        statusMsg('☁️ Sincronizado (' + chunkIds.length + ' pedaço(s))', '#28a745');
+                        esconderOverlaySync();
+                        renderizarLista();
+                        return;
+                    }
+                    jsonbinGet(chunkIds[i], cloudConfig.apiKey, function (pedaco) {
+                        if (Array.isArray(pedaco)) dados = dados.concat(pedaco);
+                        i++;
+                        proximoPedaco();
+                    }, function (e) {
+                        console.error('carregarNuvem erro (pedaço):', e);
+                        i++;
+                        proximoPedaco();
+                    });
+                }
+                proximoPedaco();
+            }, function (e) {
+                console.error('carregarNuvem erro:', e);
+                // A nuvem falhou (fora do ar, chave inválida, sem internet etc).
+                // Se já tínhamos algo em cache neste tablet, usa isso. Senão, tenta o
+                // repertorio.json local antes de desistir e mostrar a lista vazia.
+                if (banco.length > 0) {
+                    statusMsg(mensagemAcervoLocal(), '#e0a800');
+                    esconderOverlaySync();
+                    renderizarLista();
+                    return;
+                }
+                fetch('repertorio.json', { cache: 'no-store' }).then(function (resp) {
+                    return resp.ok ? resp.json() : null;
+                }).then(function (dados) {
+                    if (Array.isArray(dados) && dados.length > 0) {
+                        banco = dados;
+                        localStorage.setItem('bancoCache', JSON.stringify(banco));
+                        statusMsg('📦 Nuvem indisponível — usando repertorio.json local', '#e0a800');
+                    } else {
+                        statusMsg('⚠️ Não foi possível carregar as cifras (nuvem e repertorio.json falharam)', '#dc3545');
+                    }
+                    esconderOverlaySync();
+                    renderizarLista();
+                }).catch(function () {
+                    statusMsg('⚠️ Não foi possível carregar as cifras (nuvem e repertorio.json falharam)', '#dc3545');
+                    esconderOverlaySync();
+                    renderizarLista();
+                });
+            });
         }
 
         function renderizarLista(filtro = '') {
@@ -811,19 +965,6 @@
             if (!searchResults.classList.contains('show')) return;
             if (e.target === searchBox || searchResults.contains(e.target)) return;
             searchResults.classList.remove('show');
-        });
-
-// ===== Tema claro/escuro =====
-        function aplicarTema(tema) {
-            document.body.classList.toggle('light-theme', tema === 'light');
-            btnTema.textContent = tema === 'light' ? '☀️ Tema' : '🌙 Tema';
-        }
-        let temaAtual = localStorage.getItem('tema') || 'dark';
-        aplicarTema(temaAtual);
-        btnTema.addEventListener('click', () => {
-            temaAtual = temaAtual === 'light' ? 'dark' : 'light';
-            localStorage.setItem('tema', temaAtual);
-            aplicarTema(temaAtual);
         });
 
         // ===== Detecção e destaque de linhas de acorde =====
@@ -1657,6 +1798,7 @@
                 renderizarConteudo(cifraEscolhida.texto, 0);
                 window.scrollTo(0, 0);
                 if (isPlaying) toggleBtn.click();
+                editorArea.style.display = 'none';
                 content.style.display = 'block';
                 songBar.style.display = 'flex';
                 if (chordPanel.classList.contains('show')) renderizarPainelAcordes(cifraEscolhida.texto, 0);
@@ -1752,13 +1894,17 @@
             animationId = requestAnimationFrame(scrollPage);
         }
 
-        async function ativarWakeLock() {
+        function ativarWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    wakeStatus.textContent = '🔒 Tela mantida ativa';
-                    wakeLock.addEventListener('release', () => {
-                        wakeStatus.textContent = '';
+                    navigator.wakeLock.request('screen').then(function (lock) {
+                        wakeLock = lock;
+                        wakeStatus.textContent = '🔒 Tela mantida ativa';
+                        wakeLock.addEventListener('release', () => {
+                            wakeStatus.textContent = '';
+                        });
+                    }).catch(function () {
+                        wakeStatus.textContent = '⚠️ Não foi possível manter a tela ativa';
                     });
                 } else {
                     wakeStatus.textContent = '⚠️ Este navegador não suporta manter a tela ativa - ajuste o brilho/bloqueio manualmente';
@@ -1789,7 +1935,7 @@
         });
 
         toggleBtn.addEventListener('click', () => {
-            if (cifraSelector.value === "") return;
+            if (editorArea.style.display === 'flex' || cifraSelector.value === "") return;
             isPlaying = !isPlaying;
             if (isPlaying) {
                 document.body.classList.add('playing'); // <--- ADICIONAR AQUI
@@ -1812,7 +1958,7 @@
         // Toques num acorde (que abrem o popup) não mexem na reprodução.
         content.addEventListener('click', (e) => {
             if (e.target.closest('.chord-tok')) return;
-            if (cifraSelector.value === "") return;
+            if (editorArea.style.display === 'flex' || cifraSelector.value === "") return;
             toggleBtn.click();
             if (!isPlaying) {
                 tapFlash.classList.add('show');
@@ -1827,71 +1973,88 @@
             fontResizeTimeout = setTimeout(rerenderizarConteudoAtual, 150);
         });
 
-        // ==========================================
-        // --- LÓGICA DO BOTÃO DO PEDAL ---
-        const pedalStepInput = document.getElementById('pedalStep');
-        const pedalValue = document.getElementById('pedalValue');
-        const btnPedalUp = document.getElementById('btnPedalUp');
-        const btnPedalDown = document.getElementById('btnPedalDown');
-
-        function atualizarPedalDisplay() { 
-            pedalValue.textContent = pedalStepInput.value + ' L'; 
+        // ===== Inserir / Editar (salva só neste tablet, via localStorage) =====
+        function salvarBancoLocal() {
+            localStorage.setItem('bancoCache', JSON.stringify(banco));
         }
 
-        // Carrega a preferência salva anteriormente, se existir
-        if (localStorage.getItem('pedalStep')) {
-            pedalStepInput.value = localStorage.getItem('pedalStep');
+        function abrirEditor(tituloJanela, cifraExistente, idxExistente) {
+            editandoIndex = (idxExistente === undefined) ? null : idxExistente;
+            editorTitle.textContent = tituloJanela;
+            novaTitulo.value = cifraExistente ? cifraExistente.titulo : '';
+            novaLetra.value = cifraExistente ? cifraExistente.texto : '';
+            content.style.display = 'none';
+            songBar.style.display = 'none';
+            chordPanel.classList.remove('show');
+            chordPopup.classList.remove('show');
+            zoomGroup.classList.remove('show');
+            editorArea.style.display = 'flex';
+            if (isPlaying) toggleBtn.click();
         }
-        atualizarPedalDisplay();
 
-        btnPedalUp.addEventListener('click', () => {
-            pedalStepInput.value = Math.min(40, parseInt(pedalStepInput.value) + 1);
-            atualizarPedalDisplay();
-            localStorage.setItem('pedalStep', pedalStepInput.value);
+        btnNovaCifra.addEventListener('click', () => {
+            abrirEditor('Adicionar Nova Cifra', null);
         });
 
-        btnPedalDown.addEventListener('click', () => {
-            pedalStepInput.value = Math.max(1, parseInt(pedalStepInput.value) - 1);
-            atualizarPedalDisplay();
-            localStorage.setItem('pedalStep', pedalStepInput.value);
+        btnEditar.addEventListener('click', () => {
+            const idx = parseInt(cifraSelector.value);
+            const cifra = banco[idx];
+            if (!cifra) {
+                alert('Selecione uma cifra da lista antes de editar.');
+                return;
+            }
+            abrirEditor('Editar Cifra', cifra, idx);
         });
 
-        // --- INTERCEPTADOR DO PEDAL M-VAVE ---
-        window.addEventListener('keydown', (e) => {
-            // Teclas comuns enviadas por pedais bluetooth
-            const teclasDescida = ['PageDown', 'ArrowDown', 'ArrowRight'];
-            const teclasSubida = ['PageUp', 'ArrowUp', 'ArrowLeft'];
+        btnCancelar.addEventListener('click', () => {
+            editorArea.style.display = 'none';
+            content.style.display = 'block';
+            novaTitulo.value = '';
+            novaLetra.value = '';
+        });
 
-            // Se o usuário estiver digitando na barra de busca, não fazemos nada
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-
-            if (teclasDescida.includes(e.key) || teclasSubida.includes(e.key)) {
-                e.preventDefault(); // Impede a rolagem seca padrão do navegador
-
-                // Pega o tamanho atual da fonte escolhida no controle
-                const tamanhoFonte = parseInt(document.getElementById('fontSize').value) || 24;
-                
-                // A altura de 1 linha é o tamanho da fonte * 1.4 (baseado no seu CSS)
-                const alturaLinha = tamanhoFonte * 1.4; 
-                
-                // Calcula os pixels totais multiplicando pelas linhas configuradas
-                const qtdLinhas = parseInt(pedalStepInput.value);
-                const pixelsParaRolar = qtdLinhas * alturaLinha;
-                
-                // Define a direção (positivo para baixo, negativo para cima)
-                const direcao = teclasDescida.includes(e.key) ? 1 : -1;
-                
-                // Aplica a rolagem (mude 'smooth' para 'auto' se quiser um pulo instantâneo sem animação)
-                window.scrollBy({
-                    top: direcao * pixelsParaRolar,
-                    behavior: 'smooth'
-                });
+        btnSalvarCifra.addEventListener('click', () => {
+            const titulo = novaTitulo.value.trim();
+            const texto = novaLetra.value;
+            if (!titulo || !texto) {
+                alert('Preencha o título e cole a cifra.');
+                return;
+            }
+            if (editandoIndex !== null) {
+                banco[editandoIndex] = { titulo, texto };
+            } else {
+                banco.push({ titulo, texto });
+            }
+            editandoIndex = null;
+            editorArea.style.display = 'none';
+            content.style.display = 'block';
+            renderizarLista();
+            salvarBancoLocal();
+            // seleciona a cifra recém salva
+            const novoIndex = banco.findIndex(c => c.titulo === titulo);
+            if (novoIndex >= 0) {
+                cifraSelector.value = novoIndex;
+                cifraSelector.dispatchEvent(new Event('change'));
             }
         });
-        // ==========================================
 
-        carregarRepertorio();
-    
-</script>
+        // Gera e baixa o repertorio.json atualizado, pra você substituir manualmente
+        // no repositório do GitHub (o Vercel republica sozinho depois do commit).
+        btnBaixarJson.addEventListener('click', () => {
+            if (banco.length === 0) {
+                alert('O acervo está vazio, nada para baixar.');
+                return;
+            }
+            const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(banco, null, 4));
+            const a = document.createElement('a');
+            a.setAttribute('href', dataStr);
+            a.setAttribute('download', 'repertorio.json');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        });
+
+        carregarNuvem();
+    </script>
 </body>
 </html>
